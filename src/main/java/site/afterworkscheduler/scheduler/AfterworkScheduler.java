@@ -1,0 +1,1279 @@
+package site.afterworkscheduler.scheduler;
+
+import lombok.extern.slf4j.Slf4j;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import site.afterworkscheduler.entity.Category;
+import site.afterworkscheduler.entity.Product;
+import site.afterworkscheduler.repository.CategoryRepository;
+import site.afterworkscheduler.repository.ProductRepository;
+import site.afterworkscheduler.scheduler.source.Class101Category;
+import site.afterworkscheduler.scheduler.source.ClasstokCategory;
+import site.afterworkscheduler.scheduler.source.HobyintheboxCategory;
+
+import java.net.URLDecoder;
+import java.util.Arrays;
+import java.util.List;
+
+@Component
+@Slf4j
+public class AfterworkScheduler {
+
+    public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
+    public static final String WEB_DRIVER_PATH = "/usr/local/bin/chromedriver"; // 드라이버 경로
+
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
+    private final TalingMacro talingMacro;
+
+    public AfterworkScheduler(ProductRepository productRepository, CategoryRepository categoryRepository, TalingMacro talingMacro) {
+        this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
+        this.talingMacro = talingMacro;
+    }
+
+    @Scheduled(cron = "0 52 18 * * *")
+    public void task() {
+        try {
+            System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("headless");
+        log.info("-----------------클래스톡 시작---------------------");
+        crawlClassTok(options);
+        log.info("-----------------클래스101 시작---------------------");
+        crawlClass101(options);
+        log.info("-----------------하비풀 시작---------------------");
+        crawlHobby(options);
+        log.info("-----------------모카 시작---------------------");
+        crawlMocha(options);
+        log.info("-----------------탈잉 시작---------------------");
+        SeleniumListResponse infoList = talingMacro.sorted();
+        crawlTaling(options, infoList);
+        log.info("-----------------하비인더박스 시작---------------------");
+        crawlHobbyInTheBox(options);
+        log.info("-----------------마이비스킷 시작---------------------");
+        crawlMybiskit(options);
+    }
+    @Transactional
+    public void crawlMybiskit(ChromeOptions options) {
+        WebDriver driver = new ChromeDriver(options);
+        String siteName = "마이비스킷";
+        statusChange(siteName);
+
+        String strUrl = "https://www.mybiskit.com/lecture";
+
+        //webDriver를 해당 url로 이동한다.
+        driver.get(strUrl);
+
+        //브라우저 이동시 생기는 로드시간을 기다린다.
+        //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // 무한 스크롤
+        InfiniteScroll(driver);
+
+        List<WebElement> elList = driver.findElements(By.className("class_summary"));
+
+        for (int i = 0; i < elList.size(); i++) {
+            String strTitle = null;
+            String strAuthor = null;
+            int intPrice = 0;
+            String strPrice = null;
+            String strPriceInfo = "사전예약";
+            String strImgUrl = null;
+            String strSiteUrl = null;
+            String strSiteName = "마이비스킷";
+            String strCategory = null;
+            String strStatus = "Y";
+            int intPopularity = 0;
+            boolean isOnline = true;
+
+            strTitle = elList.get(i).findElement(By.className("class_tit")).getText();
+            intPopularity = Integer.parseInt(elList.get(i).findElement(By.className("cnt")).getText());
+
+            // 가격이 없는 경우 예외처리
+            try {
+                strPrice = elList.get(i).findElement(By.className("real_price")).findElement(By.className("num")).getText();
+                strPriceInfo = strPrice + "원";
+                intPrice = PriceStringToInt(strPrice);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            try {
+                strPriceInfo += "/월 x " + elList.get(i).findElement(By.className("installment")).findElement(By.className("num")).getText();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            strImgUrl = elList.get(i).findElement(By.className("fixed")).findElement(By.tagName("img")).getAttribute("data-src");
+
+            // 연결 사이트 mybiskit에 맞춰넣음
+            strSiteUrl = "https://www.mybiskit.com/lecture/" + strTitle.replace(" ", "-") + "-" + strImgUrl.split("/")[4];
+            strCategory = elList.get(i).findElement(By.className("ctag")).getText();
+
+            System.out.println("strTitle = " + strTitle);
+            System.out.println("intPopularity = " + intPopularity);
+            System.out.println("strPrice = " + strPrice);
+            System.out.println("strPriceInfo = " + strPriceInfo);
+            System.out.println("strImgUrl = " + strImgUrl);
+            System.out.println("isOnline = " + isOnline);
+            System.out.println("siteUrl = " + strSiteUrl);
+            System.out.println("siteName = " + strSiteName);
+
+            //카테고리 변환
+            if (strCategory.contains("운동")) {
+                strCategory = "운동/건강";
+            } else if (strCategory.contains("부업")) {
+                strCategory = "교육";
+            } else if (strCategory.contains("자수")
+                    || strCategory.contains("비누")
+                    || strCategory.contains("원데이")) {
+                strCategory = "공예";
+            } else if (strCategory.contains("디지털디자인")
+                    || strCategory.contains("캘리")
+                    || strCategory.contains("사진")) {
+                strCategory = "아트";
+            } else if (strCategory.contains("음악")) {
+                strCategory = "음악";
+            } else if (strCategory.contains("요리")) {
+                strCategory = "요리";
+            } else {
+                System.out.println("No Category");
+            }
+
+            Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+            Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+
+            if (product == null) {
+                product = Product.builder()
+                        .title(strTitle)
+                        .popularity(intPopularity)
+                        .price(intPrice)
+                        .priceInfo(strPriceInfo)
+                        .imgUrl(strImgUrl)
+                        .isOnline(isOnline)
+                        .siteUrl(strSiteUrl)
+                        .siteName(strSiteName)
+                        .status(strStatus)
+                        .category(category)
+                        .build();
+            } else {
+                product.setPopularity(intPopularity);
+                product.setPrice(intPrice);
+                product.setPriceInfo(strPriceInfo);
+                product.setImgUrl(strImgUrl);
+                product.setStatus(strStatus);
+                product.setSiteName(strSiteName);
+            }
+
+            productRepository.save(product);
+
+        }
+
+        // 크롤링이 끝났을 경우 driver 종료
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void crawlHobbyInTheBox(ChromeOptions options) {
+
+        WebDriver driver = new ChromeDriver(options);//
+        String siteName = "하비인더박스";
+        statusChange(siteName);
+
+        List<HobyintheboxCategory> enumValues = Arrays.asList(HobyintheboxCategory.values());
+
+        for (int i = 0; i < enumValues.size(); i++) {
+            int pageNum = 1;
+            while (true) {
+                String krCategory = enumValues.get(i).getKrCategory();
+                int numCategory = enumValues.get(i).getNum();
+
+                String strUrl = "https://hobbyinthebox.co.kr/category/" + krCategory + "/" + numCategory + "/?page=" + pageNum;
+
+                //webDriver를 해당 url로 이동한다.
+                driver.get(strUrl);
+
+                //브라우저 이동시 생기는 로드시간을 기다린다.
+                //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                List<WebElement> elList = driver.findElements(By.className("sp-product-item"));
+
+                if (elList.isEmpty()) {
+                    break;
+                }
+
+                for (int j = 0; j < elList.size(); j++) {
+                    String strTitle = null;
+                    String strAuthor = null;
+                    int intPrice = 0;
+                    String strPrice = null;
+                    String strPriceInfo = null;
+                    String strImgUrl = null;
+                    String strSiteUrl = null;
+                    String strSiteName = "하비인더박스";
+                    String strCategory = null;
+                    String strStatus = "Y";
+                    int intPopularity = 0;
+                    boolean isOnline = true;
+
+                    strTitle = elList.get(j).findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("alt");
+
+                    // 가격이 없는 경우 예외처리
+                    try {
+                        List<WebElement> desc = elList.get(j).findElement(By.className("sp-product-description")).findElements(By.tagName("div"));
+
+                        // 사이즈가 3일경우 즉 할인가격이 없을 경우
+                        if (desc.size() == 3) {
+                            strPrice = desc.get(0).getText();
+                            strPriceInfo = desc.get(0).getText();
+                            strAuthor = desc.get(1).getText();
+                        }
+                        //설명사이즈가 3이상인 경우 즉 할인 가격인 경우
+                        else {
+                            strPrice = desc.get(1).getText();
+                            strPriceInfo = desc.get(1).getText();
+                            strAuthor = desc.get(2).getText();
+                        }
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    intPrice = PriceStringToInt(strPrice);
+
+                    strImgUrl = elList.get(j).findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("src");
+
+                    // 연결 사이트 mybiskit에 맞춰넣음
+                    strSiteUrl = elList.get(j).findElement(By.className("sp-product-item-thumb")).findElement(By.tagName("a")).getAttribute("href");
+//                    try {
+//                        strSiteUrl = URLDecoder.decode(strSiteUrl, "UTF-8");
+//                    } catch (UnsupportedEncodingException e) {
+//                        e.printStackTrace();
+//                    }
+
+                    System.out.println("strTitle = " + strTitle);
+                    System.out.println("strAuthor = " + strAuthor);
+                    System.out.println("intPrice = " + intPrice);
+                    System.out.println("strPriceInfo = " + strPriceInfo);
+                    System.out.println("strImgUrl = " + strImgUrl);
+                    System.out.println("strSiteUrl = " + strSiteUrl);
+                    System.out.println("strSiteName = " + strSiteName);
+                    System.out.println("isOnline = " + isOnline);
+
+                    // 카테고리 변환
+                    if (krCategory.contains("운동")) {
+                        strCategory = "운동/건강";
+                    } else if (krCategory.contains("자수")
+                            || krCategory.contains("비누")
+                            || krCategory.contains("공예")
+                            || krCategory.contains("가드닝")
+                            || krCategory.contains("바늘")) {
+                        strCategory = "공예";
+                    } else if (krCategory.contains("디지털디자인")
+                            || krCategory.contains("캘리")
+                            || krCategory.contains("사진")
+                            || krCategory.contains("아트")
+                            || krCategory.contains("라이프")
+                            || krCategory.contains("미술")
+                            || krCategory.contains("퍼즐")) {
+                        strCategory = "아트";
+                    } else if (krCategory.contains("밀키트")
+                            || krCategory.contains("베이킹")) {
+                        strCategory = "요리";
+                    } else {
+                        System.out.println("No Category");
+                    }
+                    System.out.println("category = " + strCategory);
+
+                    Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+                    Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+
+                    if(product == null) {
+                        product = Product.builder()
+                                .title(strTitle)
+                                .author(strAuthor)
+                                .popularity(intPopularity)
+                                .price(intPrice)
+                                .priceInfo(strPriceInfo)
+                                .imgUrl(strImgUrl)
+                                .isOnline(isOnline)
+                                .siteUrl(strSiteUrl)
+                                .siteName(strSiteName)
+                                .status(strStatus)
+                                .category(category)
+                                .build();
+                    } else{
+                        product.setPopularity(intPopularity);
+                        product.setPrice(intPrice);
+                        product.setPriceInfo(strPriceInfo);
+                        product.setImgUrl(strImgUrl);
+                        product.setStatus(strStatus);
+                        product.setSiteName(strSiteName);
+                    }
+
+                    productRepository.save(product);
+                }
+                pageNum++;
+            }
+        }
+    }
+
+    @Transactional
+    public void crawlClass101(ChromeOptions options) {
+        WebDriver driver = new ChromeDriver(options);
+        String siteName = "클래스101";
+        statusChange(siteName);
+
+        List<Class101Category> enumValues = Arrays.asList(Class101Category.values());
+        for (int i = 0; i < enumValues.size(); i++) {
+
+            String krCategory = enumValues.get(i).getKrCategory();
+            String categoryCode = enumValues.get(i).getCategoryCode();
+
+            String url = "https://class101.net/search?category=" + categoryCode + "&sort=likedOrder&state=sales";
+
+            //webDriver를 해당 url로 이동한다.
+            driver.get(url);
+
+            //브라우저 이동시 생기는 로드시간을 기다린다.
+            //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // 무한 스크롤
+            InfiniteScrollForClass101(driver);
+
+            List<WebElement> elList = driver.findElements(By.className("sc-iNqMTl"));
+
+            for (int j = 0; j < elList.size(); j++) {
+                String strTitle = null;
+                String strAuthor = null;
+                int intPrice = 0;
+                String strPrice = null;
+                String strPriceInfo = null;
+                String strImgUrl = null;
+                String strSiteUrl = null;
+                String strSiteName = "클래스101";
+                String strCategory = null;
+                String strStatus = "Y";
+                int intPopularity = 0;
+                boolean isOnline = true;
+
+                try{
+                    //제목
+                    strTitle = elList.get(j).findElement(By.className("sc-bQdQlF")).getText();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    continue;
+                }
+                strAuthor = elList.get(j).findElement(By.className("dbRciT")).getText().split("・")[1];
+
+                String strPopularity = elList.get(j).findElement(By.className("CountTag__Container-rjlblo-0")).getText();
+                intPopularity = PriceStringToIntForClass101(strPopularity);
+
+                strSiteUrl = elList.get(j).findElement(By.className("gfCFNQ")).getAttribute("href");
+
+                try{
+                    //int가격을 위한 사전작업
+                    strPrice = elList.get(j).findElement(By.className("iLryzw")).getText();
+                    strPriceInfo = strPrice;
+                    intPrice = PriceStringToIntForClass101(strPrice.split("원")[0]);
+
+                    //할인가 적용 가격
+                    if (strPrice.contains("월"))
+                    {
+                        strPrice = strPrice.replace(" ","");
+                        strPrice = strPrice.replace("월","");
+                        strPrice = strPrice.replace("개","");
+                        strPrice = strPrice.replace("(","");
+                        strPrice = strPrice.replace(")","");
+
+                        strPriceInfo = strPrice.split("원")[0] + "원/월 x " + strPrice.split("원")[1];
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                try{
+                    //이미지 경로
+                    strImgUrl = elList.get(j).findElement(By.tagName("picture")).findElement(By.tagName("img")).getAttribute("src");
+//                    strImgUrl = elList.get(j).findElement(By.className("blDEng")).findElement(By.tagName("img")).getAttribute("src");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    continue;
+                }
+
+                System.out.println("strTitle = " + strTitle);
+                System.out.println("strAuthor = " + strAuthor);
+                System.out.println("intPopularity = " + intPopularity);
+                System.out.println("intPrice = " + intPrice);
+                System.out.println("strPriceInfo = " + strPriceInfo);
+                System.out.println("strImgUrl = " + strImgUrl);
+                System.out.println("isOnline = " + isOnline);
+                System.out.println("strSiteUrl = " + strSiteUrl);
+                System.out.println("strSiteName = " + strSiteName);
+
+                //카테고리 변환
+                if (krCategory.contains("운동")) {
+                    strCategory = "운동/건강";
+                } else if (krCategory.contains("커리어")
+                        || krCategory.contains("외국어")
+                        || krCategory.contains("교육")
+                        || krCategory.contains("창업")
+                        || krCategory.contains("비즈니스")
+                        || krCategory.contains("콘텐츠")
+                        || krCategory.contains("자기계발")
+                        || krCategory.contains("온라인쇼핑몰")
+                        || krCategory.contains("부동산")
+                        || krCategory.contains("데이터")) {
+                    strCategory = "교육";
+                } else if (krCategory.contains("공예")
+                        || krCategory.contains("글쓰기")
+                ) {
+                    strCategory = "공예";
+                } else if (krCategory.contains("라이프")
+                        || krCategory.contains("미술")
+                        || krCategory.contains("사진")
+                        || krCategory.contains("디지털")
+                        || krCategory.contains("영상")) {
+                    strCategory = "아트";
+                } else if (krCategory.contains("음악")) {
+                    strCategory = "음악";
+                } else if (krCategory.contains("요리")) {
+                    strCategory = "요리";
+                } else {
+                    System.out.println("No Category");
+                }
+                System.out.println("category = " + strCategory);
+
+                Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+                Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+
+                if (product == null) {
+                    product = Product.builder()
+                            .title(strTitle)
+                            .author(strAuthor)
+                            .popularity(intPopularity)
+                            .price(intPrice)
+                            .priceInfo(strPriceInfo)
+                            .imgUrl(strImgUrl)
+                            .isOnline(isOnline)
+                            .siteUrl(strSiteUrl)
+                            .siteName(strSiteName)
+                            .status(strStatus)
+                            .category(category)
+                            .build();
+                } else {
+                    product.setPopularity(intPopularity);
+                    product.setPrice(intPrice);
+                    product.setPriceInfo(strPriceInfo);
+                    product.setImgUrl(strImgUrl);
+                    product.setStatus(strStatus);
+                    product.setSiteName(strSiteName);
+                }
+
+                productRepository.save(product);
+            }
+        }
+
+        // 크롤링이 끝났을 경우 driver 종료
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void crawlClassTok(ChromeOptions options) {
+        // 크롬 설정을 담은 객체 생성
+        WebDriver driver = new ChromeDriver(options);
+        String siteName = "클래스톡";
+        statusChange(siteName);
+
+        List<ClasstokCategory> enumValues = Arrays.asList(ClasstokCategory.values());
+        for (int i = 0; i < enumValues.size(); i++) {
+
+            String krCategory = enumValues.get(i).getKrCategory();
+
+            String url = "https://www.classtok.net/class/search?searchKey=" + krCategory;
+
+            //webDriver를 해당 url로 이동한다.
+            driver.get(url);
+
+            //브라우저 이동시 생기는 로드시간을 기다린다.
+            //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // 무한 스크롤
+            InfiniteScroll(driver);
+
+            List<WebElement> elList = driver.findElements(By.className("search-result__item"));
+
+            for (int j = 0; j < elList.size(); j++) {
+                String strTitle = null;
+                String strAuthor = null;
+                int intPrice = 0;
+                String strPrice = null;
+                String strPriceInfo = null;
+                String strImgUrl = null;
+                String strSiteUrl = null;
+                String strSiteName = "클래스톡";
+                String strCategory = null;
+                String strStatus = "Y";
+                int intPopularity = 0;
+                boolean isOnline = true;
+
+                //제목
+                strTitle = elList.get(j).findElement(By.className("search-result__item-title")).getText();
+
+                //작성자
+                strAuthor = elList.get(j).findElement(By.className("search-result__item-coach")).getText();
+
+                String strPopularity = elList.get(j).findElement(By.className("search-result__item-member")).getText().split("명")[0];
+                intPopularity = PriceStringToInt(strPopularity);
+
+                //int가격을 위한 사전작업
+                strPrice = elList.get(j).findElement(By.className("search-result__item-price")).findElement(By.className("search-result__item-sale-price")).getText();
+                intPrice = PriceStringToIntForClass101(strPrice);
+
+                //할인가 적용 가격
+//                strPriceInfo = elList.get(j).findElement(By.className("search-result__item-price")).getText();
+                strPriceInfo = strPrice + "원/월";
+
+
+                //이미지 경로
+                strImgUrl = elList.get(j).findElement(By.className("search-result__item-cover")).getAttribute("style").split("\"")[1];
+
+                //클릭 시 이동 경로
+                strSiteUrl = elList.get(j).findElement(By.className("search-result__item-link")).getAttribute("href");
+
+                System.out.println("strTitle = " + strTitle);
+                System.out.println("strAuthor = " + strAuthor);
+                System.out.println("intPopularity = " + intPopularity);
+                System.out.println("intPrice = " + intPrice);
+                System.out.println("strPriceInfo = " + strPriceInfo);
+                System.out.println("strImgUrl = " + strImgUrl);
+                System.out.println("isOnline = " + isOnline);
+                System.out.println("strSiteUrl = " + strSiteUrl);
+                System.out.println("strSiteName = " + strSiteName);
+
+                //카테고리 변환
+                if (krCategory.contains("운동")) {
+                    strCategory = "운동/건강";
+                } else if (krCategory.contains("커리어")
+                        || krCategory.contains("외국어")
+                        || krCategory.contains("교육")) {
+                    strCategory = "교육";
+                } else if (krCategory.contains("공예")) {
+                    strCategory = "공예";
+                } else if (krCategory.contains("라이프")
+                        || krCategory.contains("미술")
+                        || krCategory.contains("사진")) {
+                    strCategory = "아트";
+                } else if (krCategory.contains("음악")) {
+                    strCategory = "음악";
+                } else if (krCategory.contains("요리")) {
+                    strCategory = "요리";
+                } else {
+                    System.out.println("No Category");
+                }
+                System.out.println("category = " + strCategory);
+
+                Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+                Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+
+                if(product == null) {
+                    product = Product.builder()
+                            .title(strTitle)
+                            .author(strAuthor)
+                            .popularity(intPopularity)
+                            .price(intPrice)
+                            .priceInfo(strPriceInfo)
+                            .imgUrl(strImgUrl)
+                            .isOnline(isOnline)
+                            .siteUrl(strSiteUrl)
+                            .siteName(strSiteName)
+                            .status(strStatus)
+                            .category(category)
+                            .build();
+                }
+                else {
+                    product.setPopularity(intPopularity);
+                    product.setPrice(intPrice);
+                    product.setPriceInfo(strPriceInfo);
+                    product.setImgUrl(strImgUrl);
+                    product.setStatus(strStatus);
+                    product.setSiteName(strSiteName);
+                }
+
+
+                productRepository.save(product);
+            }
+        }
+
+        // 크롤링이 끝났을 경우 driver 종료
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    //Hobbyful update
+    @Transactional
+    public void crawlHobby(ChromeOptions options){
+        String siteName = "하비풀";
+        statusChange(siteName);
+        WebDriver driver = new ChromeDriver(options);
+        String[] moveCategoryName = {"/embroidery", "/macrame", "/drawing", "/digital-drawing", "/knitting", "/ratan", "/leather"
+                , "/soap-candle", "/jewelry-neonsign", "/calligraphy", "/kids"};
+        int moveCategory = 0;
+        while(moveCategory < moveCategoryName.length) {
+            String url = "https://hobbyful.co.kr/list/class" + moveCategoryName[moveCategory];
+            driver.get(url);
+            String category_temp = null;
+
+            if (moveCategory == 0) category_temp = "공예";
+            else if (moveCategory == 1) category_temp = "공예";
+            else if (moveCategory == 2) category_temp = "아트";
+            else if (moveCategory == 3) category_temp = "아트";
+            else if (moveCategory == 4) category_temp = "공예";
+            else if (moveCategory == 5) category_temp = "공예";
+            else if (moveCategory == 6) category_temp = "공예";
+            else if (moveCategory == 7) category_temp = "공예";
+            else if (moveCategory == 8) category_temp = "공예";
+            else if (moveCategory == 9) category_temp = "아트";
+            else if (moveCategory == 10) category_temp = "아트";
+
+            final List<WebElement> base = driver.findElements(By.className("class-list"));
+            int size = base.size();
+
+            for (int i = 0; i < size; i++) {
+                final List<WebElement> img = driver.findElements(By.className("class-list-thumb"));
+                final List<WebElement> cont = driver.findElements(By.className("class-list-cont"));
+                final List<WebElement> base2 = driver.findElements(By.className("class-list"));
+                String location = null;
+                String imgUrl = img.get(i).findElement(By.tagName("img")).getAttribute("src");
+                String title = cont.get(i).findElement(By.className("class-list-name")).getText();
+                String author = cont.get(i).findElement(By.className("class-list-lecturer-name")).getText();
+                String price_temp = cont.get(i).findElement(By.className("class-list-price")).getText();
+                String price_info = price_temp;
+                if (price_temp.contains("월")) {
+                    price_temp = price_temp.replace("월", "");
+                    int index = price_temp.indexOf("원");
+                    price_temp = price_temp.substring(0, index);
+                    price_temp = price_temp.replace(",", "");
+                } else {
+                    price_temp = price_temp.replace(" ", "");
+                    price_temp = price_temp.replace(",", "");
+                    price_temp = price_temp.replace("원", "");
+                }
+                int price = Integer.parseInt(price_temp);
+
+                if (price_info.contains("개월")) {
+                    price_info = price_info.replace("월", "");
+                    int monthly_digit = (price_info.indexOf("개")) - 1;
+                    price_info = price_info.replace(" ", "");
+                    int indexOfWon = price_info.indexOf("원");
+                    price_info = price_info.substring(0, indexOfWon + 1);
+                    String additionTo = "/월 x ";
+                    price_info = price_info + additionTo + monthly_digit;
+                }
+
+                boolean isOnline = false;
+                String status = "Y";
+                String siteUrl = base2.get(i).findElement(By.tagName("a")).getAttribute("href");
+                try{
+                    siteUrl = URLDecoder.decode(siteUrl, "UTF-8");
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+
+                Category category = categoryRepository.findByName(category_temp).orElse(null);
+
+                Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+
+                if(product == null){
+                    product = Product.builder()
+                            .title(title)
+                            .author(author)
+                            .price(price)
+                            .priceInfo(price_info)
+                            .imgUrl(imgUrl)
+                            .isOnline(isOnline)
+                            .status(status)
+                            .siteName(siteName)
+                            .siteUrl(siteUrl)
+                            .category(category)
+                            .build();
+                    productRepository.save(product);
+                }else{
+                    product.setTitle(title);
+                    product.setAuthor(author);
+                    product.setPrice(price);
+                    product.setPriceInfo(price_info);
+                    product.setImgUrl(imgUrl);
+                    product.setOnline(isOnline);
+                    product.setSiteUrl(siteUrl);
+                    product.setSiteName(siteName);
+                    product.setStatus(status);
+                    product.setCategory(category);
+                    productRepository.save(product);
+                }
+            }
+
+            moveCategory++;
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    //MochaClass Update
+    @Transactional
+    public void crawlMocha(ChromeOptions options){
+        String siteName = "모카클래스";
+        statusChange(siteName);
+        WebDriver driver = new ChromeDriver(options);
+        String[] moveCategoryName = {"핸드메이드·수공예", "쿠킹+클래스", "플라워+레슨", "드로잉", "음악", "요가·필라테스", "레져·스포츠", "자기계발", "Live+클래스"};
+        int moveCategory = 0;
+        while(moveCategory < moveCategoryName.length) {
+            String category_temp = null;
+            if(moveCategory == 0) category_temp = "공예";
+            else if(moveCategory == 1) category_temp = "요리";
+            else if(moveCategory == 2) category_temp = "아트";
+            else if(moveCategory == 3) category_temp = "아트";
+            else if(moveCategory == 4) category_temp = "음악";
+            else if(moveCategory == 5) category_temp = "운동/건강";
+            else if(moveCategory == 6) category_temp = "운동/건강";
+            else if(moveCategory == 7) category_temp = "교육";
+            else if(moveCategory == 8) category_temp = "교육";
+
+            String url = "https://mochaclass.com/search?keyword=&location="+ "&category="+moveCategoryName[moveCategory];
+            driver.get(url);
+
+            while (true) {
+                try{
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                WebElement base = null;
+                try{
+                    base = driver.findElement(By.className("MuiGrid-root"));
+                }catch(Exception e){
+                    break;
+                }
+                final List<WebElement> base2 = base.findElements(By.tagName("a"));
+                final WebElement multiPage_base = driver.findElement(By.className("MuiPagination-ul"));
+                final List<WebElement> multiPage = multiPage_base.findElements(By.tagName("li"));
+                final String nextPage = multiPage.get(multiPage.size() - 1).findElement(By.tagName("button")).getAttribute("class");
+                int size = base2.size();
+                for (int i = 0; i < size; i++) {
+                    final List<WebElement> desc = base2.get(i).findElements(By.tagName("p"));
+                    String imgUrl = base2.get(i).findElement(By.tagName("img")).getAttribute("src");
+                    String title = desc.get(1).getText();
+                    String location = desc.get(2).getText();
+                    String price_temp = desc.get(3).getText();
+                    String price_info = price_temp;
+                    String author = null;
+                    int price = 0;
+                    if(price_temp.contains("문의")){
+                        price = 0;
+                    }else{
+                        if(price_temp.contains("%")){
+                            price_info = desc.get(5).getText();
+                            price_temp = desc.get(5).getText();
+                            price_temp = price_temp.replace(",", "");
+                            price_temp = price_temp.replace("원", "");
+                            price = Integer.parseInt(price_temp);
+                        } else if(!price_temp.contains("%")){
+                            price_temp = price_temp.replace(",", "");
+                            price_temp = price_temp.replace("원", "");
+                            price = Integer.parseInt(price_temp);
+                        }
+                    }
+                    boolean isOnline = false;
+                    if(moveCategory == moveCategoryName.length-1 || moveCategory == moveCategoryName.length-2){
+                        isOnline = true;
+                    }
+                    String status = "Y";
+                    String siteUrl = base2.get(i).getAttribute("href");
+                    Category category = categoryRepository.findByName(category_temp).orElse(null);
+
+                    Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+
+                    if(product == null){
+                        product = Product.builder()
+                                .title(title)
+                                .author(author)
+                                .price(price)
+                                .priceInfo(price_info)
+                                .imgUrl(imgUrl)
+                                .isOnline(isOnline)
+                                .location(location)
+                                .status(status)
+                                .siteName(siteName)
+                                .siteUrl(siteUrl)
+                                .category(category)
+                                .build();
+                        productRepository.save(product);
+                    }else{
+                        product.setTitle(title);
+                        product.setAuthor(author);
+                        product.setPrice(price);
+                        product.setPriceInfo(price_info);
+                        product.setImgUrl(imgUrl);
+                        product.setOnline(isOnline);
+                        product.setLocation(location);
+                        product.setSiteUrl(siteUrl);
+                        product.setSiteName(siteName);
+                        product.setStatus(status);
+                        product.setCategory(category);
+                        productRepository.save(product);
+                    }
+
+                }
+                if (nextPage.contains("disabled")) {
+                    break;
+                } else {
+                    multiPage.get(multiPage.size() - 1).click();
+                }
+            }
+            moveCategory++;
+        }
+    }
+
+    @Transactional
+    public void crawlTaling(ChromeOptions options, SeleniumListResponse infoList){
+        String siteName = "탈잉";
+        statusChange(siteName);
+        WebDriver driver = new ChromeDriver(options);
+        int productCount = 0;
+        List<CategorySort> cateList = infoList.getCateList();
+        List<MainRegionSort> mainRegionList = infoList.getMainRegionList();
+        int regionSize = 0;
+        int pageCount = 1;
+        int cateListCount = 0;
+        int regionLayerCnt = 1;
+        int mainRegionListNum = 0;
+        int regionArrayCnt = 0;
+        String url = "https://taling.me/Home/Search/?page="+pageCount+"&cateMain=&cateSub="+cateList.get(0).getCategoryNum()+"&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region=&regionMain=";
+        driver.get(url);
+
+        while(true) {
+            while (true) {
+                while (true) {
+                    String[] regionArray = null;
+                    WebElement right = driver.findElement(By.className("right"));
+                    List<WebElement> regionSubLayers = right.findElements(By.tagName("select"));
+                    List<WebElement> regionLayer = regionSubLayers.get(regionLayerCnt).findElements(By.tagName("option"));
+                    String regionUrl = regionLayer.get(0).getAttribute("value");
+                    String regionName = null;
+                    regionSize = regionSubLayers.size();
+                    if(regionLayerCnt == 0){
+                        url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub=" + cateList.get(cateListCount).getCategoryNum() +
+                                "&region=&orderIdx=&query=&code=&org=&day=&time=&region=" + regionUrl
+                                + "&regionMain=";
+                        regionLayerCnt = 1;
+                    }else{
+                        url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub=" + cateList.get(cateListCount).getCategoryNum() +
+                                "&region=&orderIdx=&query=&code=&org=&day=&time=&region=" + regionUrl
+                                + "&regionMain=" + mainRegionListNum;
+                    }
+                    driver.get(url);
+                    right = driver.findElement(By.className("right"));
+                    regionSubLayers = right.findElements(By.tagName("select"));
+                    regionLayer = regionSubLayers.get(regionLayerCnt).findElements(By.tagName("option"));
+                    regionName = regionLayer.get(0).getText();
+
+                    List<WebElement> regionSubLayer2 = regionSubLayers;
+                    List<WebElement> regionLayer2 = regionSubLayer2.get(0).findElements(By.tagName("option"));
+                    regionArray = new String[regionSubLayers.size() - 1];
+                    for (int i = 1; i < regionSubLayer2.size(); i++) {
+                        regionArray[i - 1] = regionLayer2.get(i).getText();
+                    }
+
+                    for (int i = 0; i < mainRegionList.size(); i++) {
+                        if (regionArray[regionArrayCnt].contains(mainRegionList.get(i).getMainRegionLabel())) {
+                            mainRegionListNum = mainRegionList.get(i).getMainRegionNum();
+                        }
+                    }
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    final WebElement base = driver.findElement(By.className("cont2"));
+                    final List<WebElement> product_base = base.findElements(By.className("cont2_class"));
+                    int size = product_base.size();
+                    for (int i = 0; i < size; i++) {
+                        //                Category
+                        String category_temp = cateList.get(cateListCount).getCategoryLabel();
+                        //                Image Url
+                        String imgUrl_temp = product_base.get(i).findElement(By.className("img")).getAttribute("style");
+                        String found = "";
+                        if(imgUrl_temp.contains("s3.")){
+                            found = "s3.";
+                        }else if(imgUrl_temp.contains("img.")){
+                            found = "img.";
+                        }
+                        int imgUrl_index = imgUrl_temp.indexOf(found);
+                        String http = "https://";
+                        imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
+                        String imgUrl = http + imgUrl_temp;
+                        //                Author
+                        String author = product_base.get(i).findElement(By.className("name")).getText();
+                        //                Title
+                        String title = product_base.get(i).findElement(By.className("title")).getText();
+                        //                Location
+                        String location_temp = product_base.get(i).findElement(By.className("location")).getText();
+                        String location = null;
+                        boolean isOnline = false;
+                        String[] arr = null;
+                        StringBuilder sb = new StringBuilder();
+
+                        for (int j = 0; j < mainRegionList.size(); j++) {
+                            if (mainRegionListNum == mainRegionList.get(j).getMainRegionNum()) {
+                                sb.append(mainRegionList.get(j).getMainRegionLabel());
+                                sb.append(",");
+                                break;
+                            }
+                        }
+
+                        if (location_temp.contains("온라인") || location_temp.contains("온/오프라인") || location_temp.contains("Live")
+                                || location_temp.contains("live")) {
+                            isOnline = true;
+                            arr = location_temp.split("온라인 Live|온/오프라인|지역없음|지역 없음|,");
+                            int cnt = 0;
+                            for (int j = 0; j < arr.length; j++) {
+                                if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
+                                else {
+                                    if (cnt > 0) {
+                                        sb.append(",");
+                                    }
+                                    sb.append(arr[j]);
+                                    cnt++;
+                                }
+                            }
+                            String convertSb = sb.toString();
+                            char replace = ',';
+                            char sb_last = convertSb.charAt(sb.length()-1);
+                            if(sb_last == replace){
+                                convertSb = convertSb.substring(0, convertSb.length()-1);
+                            }
+                            location = convertSb;
+                        } else if (location_temp.contains("지역 없음") || location_temp.contains("지억없음")) {
+                            arr = location_temp.split("지역없음|지역 없음|,");
+                            int cnt = 0;
+                            for (int j = 0; j < arr.length; j++) {
+                                if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
+                                else {
+                                    if (cnt > 0) {
+                                        sb.append(",");
+                                    }
+                                    sb.append(arr[j]);
+                                    cnt++;
+                                }
+                            }
+                            if (sb.length() == 3) {
+                                location = sb.substring(0, sb.length() - 1);
+                            } else {
+                                location = sb.toString();
+                            }
+                        } else {
+                            sb.append(location_temp);
+                            location = sb.toString();
+                        }
+                        //                Price
+                        String price_temp = product_base.get(i).findElement(By.className("price2")).getText();
+                        String price_info = price_temp;
+                        int price = 0;
+
+                        if (price_temp.contains("시간")) {
+                            int dash_pos = 0;
+                            price_info = price_info.replace("￦", "");
+                            dash_pos = price_info.indexOf("/");
+                            price_info = price_info.substring(0, dash_pos);
+                            price_info += "원/시간";
+
+                            price_temp = price_temp.replace("￦", "");
+                            price_temp = price_temp.replace(",", "");
+                            price_temp = price_temp.replace("/시간", "");
+                            price = Integer.parseInt(price_temp);
+                        } else {
+                            price_info = price_info.replace("￦", "");
+                            price_info += "원";
+
+                            price_temp = price_temp.replace("￦", "");
+                            price_temp = price_temp.replace(",", "");
+                            price = Integer.parseInt(price_temp);
+                        }
+
+                        //                Popularity
+                        String popularity_temp = product_base.get(i).findElement(By.className("d_day")).getText();
+                        int popularity = 0;
+                        if (popularity_temp.contains("명")) {
+                            popularity = Integer.parseInt(popularity_temp.substring(0, popularity_temp.indexOf("명")));
+                        } else if (popularity_temp.contains("D")) {
+                            try{
+                                popularity_temp = product_base.get(i).findElement(By.className("review")).getText();
+                                popularity = Integer.parseInt(popularity_temp.substring(1, popularity_temp.length() - 1));
+                            }catch(Exception e){
+                                popularity = 0;
+                            }
+                        }
+                        //                Site Url/Name
+                        String siteUrl = product_base.get(i).findElement(By.tagName("a")).getAttribute("href");
+                        //                Status
+                        String status = null;
+                        try {
+                            WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
+                            status = "N";
+                        } catch (Exception e) {
+                            status = "Y";
+                        }
+
+                        Category category = categoryRepository.findByName(category_temp).orElse(null);
+
+                        Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+
+                        if(product == null){
+                            product = Product.builder()
+                                    .title(title)
+                                    .author(author)
+                                    .price(price)
+                                    .priceInfo(price_info)
+                                    .imgUrl(imgUrl)
+                                    .isOnline(isOnline)
+                                    .location(location)
+                                    .status(status)
+                                    .siteName(siteName)
+                                    .siteUrl(siteUrl)
+                                    .category(category)
+                                    .build();
+                            productRepository.save(product);
+                        }else{
+                            product.setTitle(title);
+                            product.setAuthor(author);
+                            product.setPrice(price);
+                            product.setPriceInfo(price_info);
+                            product.setImgUrl(imgUrl);
+                            product.setOnline(isOnline);
+                            product.setLocation(location);
+                            product.setSiteUrl(siteUrl);
+                            product.setSiteName(siteName);
+                            product.setStatus(status);
+                            product.setCategory(category);
+                            productRepository.save(product);
+                        }
+                        productCount+=1;
+                        System.out.println(imgUrl);
+                    }
+                    if (size == 0) {
+                        regionLayerCnt++;
+                        regionArrayCnt++;
+                        pageCount = 1;
+                        break;
+                    } else {
+                        pageCount++;
+                    }
+                }
+                if (regionLayerCnt == regionSize) {
+                    regionLayerCnt = 0;
+                    break;
+                }
+            }
+            cateListCount++;
+            regionArrayCnt = 0;
+            if(cateListCount == cateList.size()){
+                break;
+            }
+        }
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    public void statusChange(String siteName) {
+        List<Product> productList = productRepository.findAllBySiteName(siteName);
+        if(productList.size() > 0){
+            for (Product product : productList) {
+                product.setStatus("N");
+
+                productRepository.save(product);
+            }
+        }
+    }
+
+    public void InfiniteScroll(WebDriver driver){
+        // 현재 켜져있는 drvier 무한스크롤 제일 밑으로 내려가기 위한 코드
+        JavascriptExecutor jse = (JavascriptExecutor) driver;
+
+        // 현재 스크롤 높이
+        Object last_height = jse.executeScript("return document.body.scrollHeight");
+        while (true) {
+            jse.executeScript("window.scrollTo(0,document.body.scrollHeight)");
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            jse.executeScript("window.scrollTo(0,document.body.scrollHeight - 50)");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Object new_height = jse.executeScript("return document.body.scrollHeight");
+
+            System.out.println("last_height = " + last_height);
+            System.out.println("new_height = " + new_height);
+
+            // 스크롤을 내렸음에도 불구하고 이전과 같다면 제일 밑으로 확인된다.
+            if (new_height.toString().equals(last_height.toString())) {
+                break;
+            }
+
+            // 현재 스크롤 높이
+            last_height = new_height;
+        }
+    }
+
+    public void InfiniteScrollForClass101(WebDriver driver){
+        // 현재 켜져있는 drvier 무한스크롤 제일 밑으로 내려가기 위한 코드
+        JavascriptExecutor jse = (JavascriptExecutor) driver;
+
+        // 현재 스크롤 높이
+        Object last_height = jse.executeScript("return document.body.scrollHeight");
+        while (true) {
+
+            jse.executeScript("window.scrollTo({top:document.body.scrollHeight, left:0, behavior:'smooth'})");
+
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            jse.executeScript("window.scrollTo({top:0, left:0, behavior:'smooth'})");
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Object new_height = jse.executeScript("return document.body.scrollHeight");
+
+            System.out.println("last_height = " + last_height);
+            System.out.println("new_height = " + new_height);
+
+            // 스크롤을 내렸음에도 불구하고 이전과 같다면 제일 밑으로 확인된다.
+            if (new_height.toString().equals(last_height.toString())) {
+                break;
+            }
+
+            // 현재 스크롤 높이
+            last_height = new_height;
+        }
+    }
+
+    public int PriceStringToInt(String price){
+        price = price.replace(" ", "");
+        price = price.replace(",", "");
+        price = price.replace("원", "");
+
+        return Integer.parseInt(price);
+    }
+
+    public int PriceStringToIntForClass101(String price){
+        price = price.replace(" ", "");
+        price = price.replace(",", "");
+        price = price.replace("원", "");
+        price = price.replace("월", "");
+        price = price.replace("(", "");
+        price = price.replace(")", "");
+        price = price.replace("개", "");
+
+        return Integer.parseInt(price);
+    }
+}

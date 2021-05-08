@@ -1,0 +1,10 @@
+spring:
+  profiles:
+    include: scheduler-db
+  h2:
+    console:
+      enabled: true
+  jpa:
+    properties:
+      hibernate:
+        show_sql: true
