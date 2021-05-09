@@ -26,8 +26,26 @@ import java.util.List;
 @Slf4j
 public class AfterworkScheduler {
 
+    enum ChromeDriverPath{
+        KNS("chromedriver.exe"), KSB("/usr/local/bin/chromedriver"), CJS("");
+
+        final private String path;
+
+        public String getPath(){
+            return path;
+        }
+
+        ChromeDriverPath(String path) {
+            this.path = path;
+        }
+    }
+
+    // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
-    public static final String WEB_DRIVER_PATH = "/usr/local/bin/chromedriver"; // 드라이버 경로
+//    public static final String WEB_DRIVER_PATH = "/usr/local/bin/chromedriver"; // 드라이버 경로
+    public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
@@ -101,6 +119,7 @@ public class AfterworkScheduler {
             String strStatus = "Y";
             int intPopularity = 0;
             boolean isOnline = true;
+            boolean isOffline = false;
 
             strTitle = elList.get(i).findElement(By.className("class_tit")).getText();
             intPopularity = Integer.parseInt(elList.get(i).findElement(By.className("cnt")).getText());
@@ -168,6 +187,7 @@ public class AfterworkScheduler {
                         .priceInfo(strPriceInfo)
                         .imgUrl(strImgUrl)
                         .isOnline(isOnline)
+                        .isOffline(isOffline)
                         .siteUrl(strSiteUrl)
                         .siteName(strSiteName)
                         .status(strStatus)
@@ -247,6 +267,7 @@ public class AfterworkScheduler {
                     String strStatus = "Y";
                     int intPopularity = 0;
                     boolean isOnline = true;
+                    boolean isOffline = false;
 
                     strTitle = elList.get(j).findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("alt");
 
@@ -329,6 +350,7 @@ public class AfterworkScheduler {
                                 .priceInfo(strPriceInfo)
                                 .imgUrl(strImgUrl)
                                 .isOnline(isOnline)
+                                .isOffline(isOffline)
                                 .siteUrl(strSiteUrl)
                                 .siteName(strSiteName)
                                 .status(strStatus)
@@ -393,6 +415,7 @@ public class AfterworkScheduler {
                 String strStatus = "Y";
                 int intPopularity = 0;
                 boolean isOnline = true;
+                boolean isOffline = false;
 
                 try{
                     //제목
@@ -495,6 +518,7 @@ public class AfterworkScheduler {
                             .priceInfo(strPriceInfo)
                             .imgUrl(strImgUrl)
                             .isOnline(isOnline)
+                            .isOffline(isOffline)
                             .siteUrl(strSiteUrl)
                             .siteName(strSiteName)
                             .status(strStatus)
@@ -570,6 +594,7 @@ public class AfterworkScheduler {
                 String strStatus = "Y";
                 int intPopularity = 0;
                 boolean isOnline = true;
+                boolean isOffline = false;
 
                 //제목
                 strTitle = elList.get(j).findElement(By.className("search-result__item-title")).getText();
@@ -640,6 +665,7 @@ public class AfterworkScheduler {
                             .priceInfo(strPriceInfo)
                             .imgUrl(strImgUrl)
                             .isOnline(isOnline)
+                            .isOffline(isOffline)
                             .siteUrl(strSiteUrl)
                             .siteName(strSiteName)
                             .status(strStatus)
