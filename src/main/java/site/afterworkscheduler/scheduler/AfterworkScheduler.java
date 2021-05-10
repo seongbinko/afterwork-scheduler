@@ -27,7 +27,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     enum ChromeDriverPath{
-        KNS("chromedriver.exe"), KSB("/usr/local/bin/chromedriver"), CJS("");
+        KNS("chromedriver.exe"), KSB("/usr/local/bin/chromedriver"), CJS("C:\\Users\\Jason\\Downloads\\chromedriver.exe");
 
         final private String path;
 
@@ -41,7 +41,7 @@ public class AfterworkScheduler {
     }
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
 //    public static final String WEB_DRIVER_PATH = "/usr/local/bin/chromedriver"; // 드라이버 경로
@@ -81,6 +81,12 @@ public class AfterworkScheduler {
         crawlHobbyInTheBox(options);
         log.info("-----------------마이비스킷 시작---------------------");
         crawlMybiskit(options);
+        try{
+            Thread.sleep(60000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
@@ -1168,6 +1174,7 @@ public class AfterworkScheduler {
                                     .imgUrl(imgUrl)
                                     .isOnline(isOnline)
                                     .isOffline(isOffline)
+                                    .popularity(popularity)
                                     .location(location)
                                     .status(status)
                                     .siteName(siteName)
@@ -1184,6 +1191,7 @@ public class AfterworkScheduler {
                             product.setOnline(isOnline);
                             product.setOffline(isOffline);
                             product.setLocation(location);
+                            product.setPopularity(popularity);
                             product.setSiteUrl(siteUrl);
                             product.setSiteName(siteName);
                             product.setStatus(status);
@@ -1191,7 +1199,6 @@ public class AfterworkScheduler {
                             productRepository.save(product);
                         }
                         productCount+=1;
-                        System.out.println(imgUrl);
                     }
                     if (size == 0) {
                         regionLayerCnt++;
