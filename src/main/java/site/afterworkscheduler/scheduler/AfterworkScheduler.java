@@ -762,6 +762,7 @@ public class AfterworkScheduler {
                 }
 
                 boolean isOnline = false;
+                boolean isOffline = true;
                 String status = "Y";
                 String siteUrl = base2.get(i).findElement(By.tagName("a")).getAttribute("href");
                 try{
@@ -782,6 +783,7 @@ public class AfterworkScheduler {
                             .priceInfo(price_info)
                             .imgUrl(imgUrl)
                             .isOnline(isOnline)
+                            .isOffline(isOffline)
                             .status(status)
                             .siteName(siteName)
                             .siteUrl(siteUrl)
@@ -795,6 +797,7 @@ public class AfterworkScheduler {
                     product.setPriceInfo(price_info);
                     product.setImgUrl(imgUrl);
                     product.setOnline(isOnline);
+                    product.setOffline(isOffline);
                     product.setSiteUrl(siteUrl);
                     product.setSiteName(siteName);
                     product.setStatus(status);
@@ -864,9 +867,18 @@ public class AfterworkScheduler {
                 final String nextPage = multiPage.get(multiPage.size() - 1).findElement(By.tagName("button")).getAttribute("class");
                 int size = base2.size();
                 for (int i = 0; i < size; i++) {
+                    boolean isOnline = false;
+                    boolean isOffline = true;
                     final List<WebElement> desc = base2.get(i).findElements(By.tagName("p"));
                     String imgUrl = base2.get(i).findElement(By.tagName("img")).getAttribute("src");
                     String title = desc.get(1).getText();
+                    if(title.contains("온라인")){
+                        isOnline = true;
+                        isOffline = false;
+                    }else if(moveCategory == 8){
+                        isOnline = true;
+                        isOffline = false;
+                    }
                     String location = desc.get(2).getText();
                     String price_temp = desc.get(3).getText();
                     String price_info = price_temp;
@@ -887,7 +899,6 @@ public class AfterworkScheduler {
                             price = Integer.parseInt(price_temp);
                         }
                     }
-                    boolean isOnline = false;
                     if(moveCategory == moveCategoryName.length-1 || moveCategory == moveCategoryName.length-2){
                         isOnline = true;
                     }
@@ -905,6 +916,7 @@ public class AfterworkScheduler {
                                 .priceInfo(price_info)
                                 .imgUrl(imgUrl)
                                 .isOnline(isOnline)
+                                .isOffline(isOffline)
                                 .location(location)
                                 .status(status)
                                 .siteName(siteName)
@@ -919,6 +931,7 @@ public class AfterworkScheduler {
                         product.setPriceInfo(price_info);
                         product.setImgUrl(imgUrl);
                         product.setOnline(isOnline);
+                        product.setOffline(isOffline);
                         product.setLocation(location);
                         product.setSiteUrl(siteUrl);
                         product.setSiteName(siteName);
@@ -1024,6 +1037,7 @@ public class AfterworkScheduler {
                         String location_temp = product_base.get(i).findElement(By.className("location")).getText();
                         String location = null;
                         boolean isOnline = false;
+                        boolean isOffline = false;
                         String[] arr = null;
                         StringBuilder sb = new StringBuilder();
 
@@ -1079,6 +1093,17 @@ public class AfterworkScheduler {
                             sb.append(location_temp);
                             location = sb.toString();
                         }
+
+                        if(location.contains("온라인")){
+                            if(location.length() == 3){
+                                isOffline = false;
+                                isOnline = true;
+                            }else{
+                                isOffline = true;
+                                isOnline = true;
+                            }
+                        }
+
                         //                Price
                         String price_temp = product_base.get(i).findElement(By.className("price2")).getText();
                         String price_info = price_temp;
@@ -1124,6 +1149,8 @@ public class AfterworkScheduler {
                         try {
                             WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
                             status = "N";
+                            isOffline = false;
+                            isOnline = false;
                         } catch (Exception e) {
                             status = "Y";
                         }
@@ -1140,6 +1167,7 @@ public class AfterworkScheduler {
                                     .priceInfo(price_info)
                                     .imgUrl(imgUrl)
                                     .isOnline(isOnline)
+                                    .isOffline(isOffline)
                                     .location(location)
                                     .status(status)
                                     .siteName(siteName)
@@ -1154,6 +1182,7 @@ public class AfterworkScheduler {
                             product.setPriceInfo(price_info);
                             product.setImgUrl(imgUrl);
                             product.setOnline(isOnline);
+                            product.setOffline(isOffline);
                             product.setLocation(location);
                             product.setSiteUrl(siteUrl);
                             product.setSiteName(siteName);
