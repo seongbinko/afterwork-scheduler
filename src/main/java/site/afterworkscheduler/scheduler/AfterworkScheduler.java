@@ -81,12 +81,6 @@ public class AfterworkScheduler {
         crawlHobbyInTheBox(options);
         log.info("-----------------마이비스킷 시작---------------------");
         crawlMybiskit(options);
-        try{
-            Thread.sleep(60000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
@@ -1043,7 +1037,7 @@ public class AfterworkScheduler {
                         String location_temp = product_base.get(i).findElement(By.className("location")).getText();
                         String location = null;
                         boolean isOnline = false;
-                        boolean isOffline = false;
+                        boolean isOffline = true;
                         String[] arr = null;
                         StringBuilder sb = new StringBuilder();
 
@@ -1057,7 +1051,6 @@ public class AfterworkScheduler {
 
                         if (location_temp.contains("온라인") || location_temp.contains("온/오프라인") || location_temp.contains("Live")
                                 || location_temp.contains("live")) {
-                            isOnline = true;
                             arr = location_temp.split("온라인 Live|온/오프라인|지역없음|지역 없음|,");
                             int cnt = 0;
                             for (int j = 0; j < arr.length; j++) {
@@ -1100,7 +1093,7 @@ public class AfterworkScheduler {
                             location = sb.toString();
                         }
 
-                        if(location.contains("온라인")){
+                        if(location.contains("온라인") || title.contains("온라인")){
                             if(location.length() == 3){
                                 isOffline = false;
                                 isOnline = true;
@@ -1155,8 +1148,6 @@ public class AfterworkScheduler {
                         try {
                             WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
                             status = "N";
-                            isOffline = false;
-                            isOnline = false;
                         } catch (Exception e) {
                             status = "Y";
                         }
