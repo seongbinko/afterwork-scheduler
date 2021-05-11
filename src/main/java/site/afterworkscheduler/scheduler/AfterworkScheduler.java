@@ -1,5 +1,6 @@
 package site.afterworkscheduler.scheduler;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -14,48 +15,30 @@ import site.afterworkscheduler.entity.Category;
 import site.afterworkscheduler.entity.Product;
 import site.afterworkscheduler.repository.CategoryRepository;
 import site.afterworkscheduler.repository.ProductRepository;
+import site.afterworkscheduler.scheduler.source.ChromeDriverPath;
 import site.afterworkscheduler.scheduler.source.Class101Category;
 import site.afterworkscheduler.scheduler.source.ClasstokCategory;
 import site.afterworkscheduler.scheduler.source.HobyintheboxCategory;
 
 import java.net.URLDecoder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class AfterworkScheduler {
 
-    enum ChromeDriverPath{
-        KNS("chromedriver.exe"), KSB("/usr/local/bin/chromedriver"), CJS("C:\\Users\\Jason\\Downloads\\chromedriver.exe");
-
-        final private String path;
-
-        public String getPath(){
-            return path;
-        }
-
-        ChromeDriverPath(String path) {
-            this.path = path;
-        }
-    }
-
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KSB;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
-//    public static final String WEB_DRIVER_PATH = "/usr/local/bin/chromedriver"; // 드라이버 경로
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
-
-    public AfterworkScheduler(ProductRepository productRepository, CategoryRepository categoryRepository, TalingMacro talingMacro) {
-        this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
-        this.talingMacro = talingMacro;
-    }
 
     @Scheduled(cron = "0 52 18 * * *")
     public void task() {
@@ -66,27 +49,34 @@ public class AfterworkScheduler {
         }
         ChromeOptions options = new ChromeOptions();
         options.addArguments("headless");
-        log.info("-----------------클래스톡 시작---------------------");
+        // 소스 실행전 시간 취득
+        long start = System.currentTimeMillis();
+
+        productRepository.bulkStatusN();
+
         crawlClassTok(options);
-        log.info("-----------------클래스101 시작---------------------");
+
         crawlClass101(options);
-        log.info("-----------------하비풀 시작---------------------");
+
         crawlHobby(options);
-        log.info("-----------------모카 시작---------------------");
+
         crawlMocha(options);
-        log.info("-----------------탈잉 시작---------------------");
+
         SeleniumListResponse infoList = talingMacro.sorted();
         crawlTaling(options, infoList);
-        log.info("-----------------하비인더박스 시작---------------------");
+
         crawlHobbyInTheBox(options);
-        log.info("-----------------마이비스킷 시작---------------------");
+
         crawlMybiskit(options);
+        long end = System.currentTimeMillis();
+        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
         WebDriver driver = new ChromeDriver(options);
+
         String siteName = "마이비스킷";
-        statusChange(siteName);
+        //statusChange(siteName);
 
         String strUrl = "https://www.mybiskit.com/lecture";
 
@@ -145,14 +135,14 @@ public class AfterworkScheduler {
             strSiteUrl = "https://www.mybiskit.com/lecture/" + strTitle.replace(" ", "-") + "-" + strImgUrl.split("/")[4];
             strCategory = elList.get(i).findElement(By.className("ctag")).getText();
 
-            System.out.println("strTitle = " + strTitle);
-            System.out.println("intPopularity = " + intPopularity);
-            System.out.println("strPrice = " + strPrice);
-            System.out.println("strPriceInfo = " + strPriceInfo);
-            System.out.println("strImgUrl = " + strImgUrl);
-            System.out.println("isOnline = " + isOnline);
-            System.out.println("siteUrl = " + strSiteUrl);
-            System.out.println("siteName = " + strSiteName);
+//            System.out.println("strTitle = " + strTitle);
+//            System.out.println("intPopularity = " + intPopularity);
+//            System.out.println("strPrice = " + strPrice);
+//            System.out.println("strPriceInfo = " + strPriceInfo);
+//            System.out.println("strImgUrl = " + strImgUrl);
+//            System.out.println("isOnline = " + isOnline);
+//            System.out.println("siteUrl = " + strSiteUrl);
+//            System.out.println("siteName = " + strSiteName);
 
             //카테고리 변환
             if (strCategory.contains("운동")) {
@@ -222,14 +212,25 @@ public class AfterworkScheduler {
 
     @Transactional
     public void crawlHobbyInTheBox(ChromeOptions options) {
-
-        WebDriver driver = new ChromeDriver(options);//
+        // 프러덕트 테이블의 모든 컬럼을 N으로 바꾼다.
         String siteName = "하비인더박스";
-        statusChange(siteName);
+        // productRepository.bulkStatusNWithSiteName(siteName);
+
+        try {
+            System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        options.addArguments("headless");
+        WebDriver driver = new ChromeDriver(options);//
+//        String siteName = "하비인더박스";
+//        statusChange(siteName);
 
         List<HobyintheboxCategory> enumValues = Arrays.asList(HobyintheboxCategory.values());
-
+        List<Product> newProducts = new ArrayList<>();
+        List<Product> updateProducts = new ArrayList<>();
         for (int i = 0; i < enumValues.size(); i++) {
+            //for (int i = 0; i < 3; i++) {
             int pageNum = 1;
             while (true) {
                 String krCategory = enumValues.get(i).getKrCategory();
@@ -262,7 +263,7 @@ public class AfterworkScheduler {
                     String strPriceInfo = null;
                     String strImgUrl = null;
                     String strSiteUrl = null;
-                    String strSiteName = "하비인더박스";
+                    String strSiteName = siteName;
                     String strCategory = null;
                     String strStatus = "Y";
                     int intPopularity = 0;
@@ -297,20 +298,6 @@ public class AfterworkScheduler {
 
                     // 연결 사이트 mybiskit에 맞춰넣음
                     strSiteUrl = elList.get(j).findElement(By.className("sp-product-item-thumb")).findElement(By.tagName("a")).getAttribute("href");
-//                    try {
-//                        strSiteUrl = URLDecoder.decode(strSiteUrl, "UTF-8");
-//                    } catch (UnsupportedEncodingException e) {
-//                        e.printStackTrace();
-//                    }
-
-                    System.out.println("strTitle = " + strTitle);
-                    System.out.println("strAuthor = " + strAuthor);
-                    System.out.println("intPrice = " + intPrice);
-                    System.out.println("strPriceInfo = " + strPriceInfo);
-                    System.out.println("strImgUrl = " + strImgUrl);
-                    System.out.println("strSiteUrl = " + strSiteUrl);
-                    System.out.println("strSiteName = " + strSiteName);
-                    System.out.println("isOnline = " + isOnline);
 
                     // 카테고리 변환
                     if (krCategory.contains("운동")) {
@@ -333,6 +320,7 @@ public class AfterworkScheduler {
                             || krCategory.contains("베이킹")) {
                         strCategory = "요리";
                     } else {
+                        //Todo: 테스트 코드에서는 로그를 못찍으니 실제어플리케이션에서는 @sl4j를 활용한 log.info를 찍으십시오
                         System.out.println("No Category");
                     }
                     System.out.println("category = " + strCategory);
@@ -356,27 +344,33 @@ public class AfterworkScheduler {
                                 .status(strStatus)
                                 .category(category)
                                 .build();
-                    } else{
+                        newProducts.add(product);
+                    } else {
                         product.setPopularity(intPopularity);
                         product.setPrice(intPrice);
                         product.setPriceInfo(strPriceInfo);
                         product.setImgUrl(strImgUrl);
                         product.setStatus(strStatus);
                         product.setSiteName(strSiteName);
+                        //productService.updatePost(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
+                        //product.updateProduct(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
+                        updateProducts.add(product);
                     }
-
-                    productRepository.save(product);
                 }
                 pageNum++;
             }
         }
+        productRepository.saveAll(newProducts);
+        productRepository.saveAll(updateProducts);
+        log.info("총 save하는 product size: "+ newProducts.size());
+        log.info("총 update하는 product size: "+ updateProducts.size());
     }
 
     @Transactional
     public void crawlClass101(ChromeOptions options) {
         WebDriver driver = new ChromeDriver(options);
         String siteName = "클래스101";
-        statusChange(siteName);
+        //statusChange(siteName);
 
         List<Class101Category> enumValues = Arrays.asList(Class101Category.values());
         for (int i = 0; i < enumValues.size(); i++) {
@@ -556,7 +550,7 @@ public class AfterworkScheduler {
         // 크롬 설정을 담은 객체 생성
         WebDriver driver = new ChromeDriver(options);
         String siteName = "클래스톡";
-        statusChange(siteName);
+        //statusChange(siteName);
 
         List<ClasstokCategory> enumValues = Arrays.asList(ClasstokCategory.values());
         for (int i = 0; i < enumValues.size(); i++) {
@@ -619,16 +613,6 @@ public class AfterworkScheduler {
 
                 //클릭 시 이동 경로
                 strSiteUrl = elList.get(j).findElement(By.className("search-result__item-link")).getAttribute("href");
-
-                System.out.println("strTitle = " + strTitle);
-                System.out.println("strAuthor = " + strAuthor);
-                System.out.println("intPopularity = " + intPopularity);
-                System.out.println("intPrice = " + intPrice);
-                System.out.println("strPriceInfo = " + strPriceInfo);
-                System.out.println("strImgUrl = " + strImgUrl);
-                System.out.println("isOnline = " + isOnline);
-                System.out.println("strSiteUrl = " + strSiteUrl);
-                System.out.println("strSiteName = " + strSiteName);
 
                 //카테고리 변환
                 if (krCategory.contains("운동")) {
@@ -704,7 +688,7 @@ public class AfterworkScheduler {
     @Transactional
     public void crawlHobby(ChromeOptions options){
         String siteName = "하비풀";
-        statusChange(siteName);
+        //statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         String[] moveCategoryName = {"/embroidery", "/macrame", "/drawing", "/digital-drawing", "/knitting", "/ratan", "/leather"
                 , "/soap-candle", "/jewelry-neonsign", "/calligraphy", "/kids"};
@@ -830,7 +814,7 @@ public class AfterworkScheduler {
     @Transactional
     public void crawlMocha(ChromeOptions options){
         String siteName = "모카클래스";
-        statusChange(siteName);
+        // statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         String[] moveCategoryName = {"핸드메이드·수공예", "쿠킹+클래스", "플라워+레슨", "드로잉", "음악", "요가·필라테스", "레져·스포츠", "자기계발", "Live+클래스"};
         int moveCategory = 0;
@@ -954,7 +938,7 @@ public class AfterworkScheduler {
     @Transactional
     public void crawlTaling(ChromeOptions options, SeleniumListResponse infoList){
         String siteName = "탈잉";
-        statusChange(siteName);
+        // statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         int productCount = 0;
         List<CategorySort> cateList = infoList.getCateList();
@@ -1224,16 +1208,16 @@ public class AfterworkScheduler {
         }
     }
 
-    public void statusChange(String siteName) {
-        List<Product> productList = productRepository.findAllBySiteName(siteName);
-        if(productList.size() > 0){
-            for (Product product : productList) {
-                product.setStatus("N");
-
-                productRepository.save(product);
-            }
-        }
-    }
+//    public void statusChange(String siteName) {
+//        List<Product> productList = productRepository.findAllBySiteName(siteName);
+//        if(productList.size() > 0){
+//            for (Product product : productList) {
+//                product.setStatus("N");
+//
+//                productRepository.save(product);
+//            }
+//        }
+//    }
 
     public void InfiniteScroll(WebDriver driver){
         // 현재 켜져있는 drvier 무한스크롤 제일 밑으로 내려가기 위한 코드
@@ -1315,7 +1299,7 @@ public class AfterworkScheduler {
         price = price.replace(",", "");
         price = price.replace("원", "");
 
-        return Integer.parseInt(price);
+        return Integer.valueOf(price);
     }
 
     public int PriceStringToIntForClass101(String price){
@@ -1327,6 +1311,6 @@ public class AfterworkScheduler {
         price = price.replace(")", "");
         price = price.replace("개", "");
 
-        return Integer.parseInt(price);
+        return Integer.valueOf(price);
     }
 }

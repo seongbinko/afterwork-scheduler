@@ -54,4 +54,13 @@ public class Product extends BaseTimeEntity{
     @OneToMany(mappedBy = "product")
     @Builder.Default
     List<Collect> collects = new ArrayList<>();
+
+    public void updateProduct(int popularity, int price, String priceInfo, String imgUrl, String status, String siteName) {
+        this.popularity = popularity;
+        this.price = price;
+        this.priceInfo = priceInfo;
+        this.imgUrl = imgUrl;
+        this.status = status;
+        this.siteName = siteName;
+    }
 }

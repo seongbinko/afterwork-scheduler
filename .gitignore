@@ -40,6 +40,8 @@ chromedriver
 
 ### application.yml
 application-scheduler-db.yml
+application-test-db.yml
 
+src/test/resources/*
 ### for Apple
 .DS_Store
