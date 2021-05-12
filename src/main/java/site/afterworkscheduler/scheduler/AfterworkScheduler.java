@@ -30,7 +30,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -54,7 +54,7 @@ public class AfterworkScheduler {
 //        productRepository.bulkStatusN();
 
         crawlClassTok(options);
-//
+
         crawlClass101(options);
 
         crawlHobby(options);
@@ -660,7 +660,9 @@ public class AfterworkScheduler {
     //Hobbyful update
     @Transactional
     public void crawlHobby(ChromeOptions options){
+        List<Product> updateProducts = new ArrayList<>();
         String siteName = "하비풀";
+        productRepository.bulkStatusNWithSiteName(siteName);
         //statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         String[] moveCategoryName = {"/embroidery", "/macrame", "/drawing", "/digital-drawing", "/knitting", "/ratan", "/leather"
@@ -759,10 +761,9 @@ public class AfterworkScheduler {
                     product.setSiteName(siteName);
                     product.setStatus(status);
                     product.setCategory(category);
-                    productRepository.save(product);
+                    updateProducts.add(product);
                 }
             }
-
             moveCategory++;
             try {
                 Thread.sleep(2000);
@@ -770,6 +771,8 @@ public class AfterworkScheduler {
                 e.printStackTrace();
             }
         }
+        productRepository.saveAll(updateProducts);
+        log.info("총 update하는 product size: "+ updateProducts.size());
         try {
             //드라이버가 null이 아니라면
             if (driver != null) {
@@ -786,7 +789,9 @@ public class AfterworkScheduler {
     //MochaClass Update
     @Transactional
     public void crawlMocha(ChromeOptions options){
+        List<Product> updateProducts = new ArrayList<>();
         String siteName = "모카클래스";
+        productRepository.bulkStatusNWithSiteName(siteName);
         // statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         String[] moveCategoryName = {"핸드메이드·수공예", "쿠킹+클래스", "플라워+레슨", "드로잉", "음악", "요가·필라테스", "레져·스포츠", "자기계발", "Live+클래스"};
@@ -894,7 +899,7 @@ public class AfterworkScheduler {
                         product.setSiteName(siteName);
                         product.setStatus(status);
                         product.setCategory(category);
-                        productRepository.save(product);
+                        updateProducts.add(product);
                     }
 
                 }
@@ -906,11 +911,26 @@ public class AfterworkScheduler {
             }
             moveCategory++;
         }
+        productRepository.saveAll(updateProducts);
+        log.info("총 update하는 product size: "+ updateProducts.size());
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     @Transactional
     public void crawlTaling(ChromeOptions options, SeleniumListResponse infoList){
+        List<Product> updateProducts = new ArrayList<>();
         String siteName = "탈잉";
+        productRepository.bulkStatusNWithSiteName(siteName);
         // statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         int productCount = 0;
@@ -1144,7 +1164,7 @@ public class AfterworkScheduler {
                             product.setSiteName(siteName);
                             product.setStatus(status);
                             product.setCategory(category);
-                            productRepository.save(product);
+                            updateProducts.add(product);
                         }
                         productCount+=1;
                     }
@@ -1168,6 +1188,8 @@ public class AfterworkScheduler {
                 break;
             }
         }
+        productRepository.saveAll(updateProducts);
+        log.info("총 update하는 product size: "+ updateProducts.size());
         try {
             //드라이버가 null이 아니라면
             if (driver != null) {
