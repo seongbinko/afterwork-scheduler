@@ -22,7 +22,6 @@ import site.afterworkscheduler.scheduler.source.HobyintheboxCategory;
 
 import java.net.URLDecoder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -31,7 +30,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KSB;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -40,7 +39,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 52 18 * * *")
+    @Scheduled(cron = "0 22 12 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -52,18 +51,18 @@ public class AfterworkScheduler {
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
-        productRepository.bulkStatusN();
+//        productRepository.bulkStatusN();
 
         crawlClassTok(options);
-
+//
         crawlClass101(options);
 
-        crawlHobby(options);
-
-        crawlMocha(options);
-
-        SeleniumListResponse infoList = talingMacro.sorted();
-        crawlTaling(options, infoList);
+//        crawlHobby(options);
+//
+//        crawlMocha(options);
+//
+//        SeleniumListResponse infoList = talingMacro.sorted();
+//        crawlTaling(options, infoList);
 
         crawlHobbyInTheBox(options);
 
@@ -73,10 +72,10 @@ public class AfterworkScheduler {
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
-        WebDriver driver = new ChromeDriver(options);
-
         String siteName = "마이비스킷";
-        //statusChange(siteName);
+        productRepository.bulkStatusNWithSiteName(siteName);
+
+        WebDriver driver = new ChromeDriver(options);
 
         String strUrl = "https://www.mybiskit.com/lecture";
 
@@ -95,8 +94,9 @@ public class AfterworkScheduler {
         InfiniteScroll(driver);
 
         List<WebElement> elList = driver.findElements(By.className("class_summary"));
+        List<Product> updateProducts = new ArrayList<>();
 
-        for (int i = 0; i < elList.size(); i++) {
+        for (WebElement webElement : elList) {
             String strTitle = null;
             String strAuthor = null;
             int intPrice = 0;
@@ -111,12 +111,12 @@ public class AfterworkScheduler {
             boolean isOnline = true;
             boolean isOffline = false;
 
-            strTitle = elList.get(i).findElement(By.className("class_tit")).getText();
-            intPopularity = Integer.parseInt(elList.get(i).findElement(By.className("cnt")).getText());
+            strTitle = webElement.findElement(By.className("class_tit")).getText();
+            intPopularity = Integer.parseInt(webElement.findElement(By.className("cnt")).getText());
 
             // 가격이 없는 경우 예외처리
             try {
-                strPrice = elList.get(i).findElement(By.className("real_price")).findElement(By.className("num")).getText();
+                strPrice = webElement.findElement(By.className("real_price")).findElement(By.className("num")).getText();
                 strPriceInfo = strPrice + "원";
                 intPrice = PriceStringToInt(strPrice);
             } catch (Exception e) {
@@ -124,25 +124,16 @@ public class AfterworkScheduler {
             }
 
             try {
-                strPriceInfo += "/월 x " + elList.get(i).findElement(By.className("installment")).findElement(By.className("num")).getText();
+                strPriceInfo += "/월 x " + webElement.findElement(By.className("installment")).findElement(By.className("num")).getText();
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
-            strImgUrl = elList.get(i).findElement(By.className("fixed")).findElement(By.tagName("img")).getAttribute("data-src");
+            strImgUrl = webElement.findElement(By.className("fixed")).findElement(By.tagName("img")).getAttribute("data-src");
 
             // 연결 사이트 mybiskit에 맞춰넣음
             strSiteUrl = "https://www.mybiskit.com/lecture/" + strTitle.replace(" ", "-") + "-" + strImgUrl.split("/")[4];
-            strCategory = elList.get(i).findElement(By.className("ctag")).getText();
-
-//            System.out.println("strTitle = " + strTitle);
-//            System.out.println("intPopularity = " + intPopularity);
-//            System.out.println("strPrice = " + strPrice);
-//            System.out.println("strPriceInfo = " + strPriceInfo);
-//            System.out.println("strImgUrl = " + strImgUrl);
-//            System.out.println("isOnline = " + isOnline);
-//            System.out.println("siteUrl = " + strSiteUrl);
-//            System.out.println("siteName = " + strSiteName);
+            strCategory = webElement.findElement(By.className("ctag")).getText();
 
             //카테고리 변환
             if (strCategory.contains("운동")) {
@@ -167,7 +158,7 @@ public class AfterworkScheduler {
 
             Category category = categoryRepository.findByName(strCategory).orElse(null);
 
-            Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+            Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
 
             if (product == null) {
                 product = Product.builder()
@@ -183,6 +174,8 @@ public class AfterworkScheduler {
                         .status(strStatus)
                         .category(category)
                         .build();
+
+                productRepository.save(product);
             } else {
                 product.setPopularity(intPopularity);
                 product.setPrice(intPrice);
@@ -190,21 +183,19 @@ public class AfterworkScheduler {
                 product.setImgUrl(strImgUrl);
                 product.setStatus(strStatus);
                 product.setSiteName(strSiteName);
+
+                updateProducts.add(product);
             }
-
-            productRepository.save(product);
-
         }
+        productRepository.saveAll(updateProducts);
+        log.info("총 update하는 product size: "+ updateProducts.size());
 
         // 크롤링이 끝났을 경우 driver 종료
         try {
-            //드라이버가 null이 아니라면
-            if (driver != null) {
-                // 드라이버 연결 종료
-                driver.close(); // 드라이버 연결해제
-                // 프로세스 종료
-                driver.quit();
-            }
+            // 드라이버 연결 종료
+            driver.close(); // 드라이버 연결해제
+            // 프로세스 종료
+            driver.quit();
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
@@ -214,27 +205,24 @@ public class AfterworkScheduler {
     public void crawlHobbyInTheBox(ChromeOptions options) {
         // 프러덕트 테이블의 모든 컬럼을 N으로 바꾼다.
         String siteName = "하비인더박스";
-        // productRepository.bulkStatusNWithSiteName(siteName);
+        productRepository.bulkStatusNWithSiteName(siteName);
+
+        WebDriver driver = new ChromeDriver(options);
 
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
         } catch (Exception e){
             e.printStackTrace();
         }
-        options.addArguments("headless");
-        WebDriver driver = new ChromeDriver(options);//
-//        String siteName = "하비인더박스";
-//        statusChange(siteName);
 
-        List<HobyintheboxCategory> enumValues = Arrays.asList(HobyintheboxCategory.values());
-        List<Product> newProducts = new ArrayList<>();
+        HobyintheboxCategory[] enumValues = HobyintheboxCategory.values();
         List<Product> updateProducts = new ArrayList<>();
-        for (int i = 0; i < enumValues.size(); i++) {
+        for (HobyintheboxCategory enumValue : enumValues) {
             //for (int i = 0; i < 3; i++) {
             int pageNum = 1;
             while (true) {
-                String krCategory = enumValues.get(i).getKrCategory();
-                int numCategory = enumValues.get(i).getNum();
+                String krCategory = enumValue.getKrCategory();
+                int numCategory = enumValue.getNum();
 
                 String strUrl = "https://hobbyinthebox.co.kr/category/" + krCategory + "/" + numCategory + "/?page=" + pageNum;
 
@@ -255,7 +243,7 @@ public class AfterworkScheduler {
                     break;
                 }
 
-                for (int j = 0; j < elList.size(); j++) {
+                for (WebElement webElement : elList) {
                     String strTitle = null;
                     String strAuthor = null;
                     int intPrice = 0;
@@ -270,11 +258,11 @@ public class AfterworkScheduler {
                     boolean isOnline = true;
                     boolean isOffline = false;
 
-                    strTitle = elList.get(j).findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("alt");
+                    strTitle = webElement.findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("alt");
 
                     // 가격이 없는 경우 예외처리
                     try {
-                        List<WebElement> desc = elList.get(j).findElement(By.className("sp-product-description")).findElements(By.tagName("div"));
+                        List<WebElement> desc = webElement.findElement(By.className("sp-product-description")).findElements(By.tagName("div"));
 
                         // 사이즈가 3일경우 즉 할인가격이 없을 경우
                         if (desc.size() == 3) {
@@ -294,10 +282,10 @@ public class AfterworkScheduler {
                     }
                     intPrice = PriceStringToInt(strPrice);
 
-                    strImgUrl = elList.get(j).findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("src");
+                    strImgUrl = webElement.findElement(By.className("sp-product-item-thumb-origin")).findElement(By.tagName("img")).getAttribute("src");
 
                     // 연결 사이트 mybiskit에 맞춰넣음
-                    strSiteUrl = elList.get(j).findElement(By.className("sp-product-item-thumb")).findElement(By.tagName("a")).getAttribute("href");
+                    strSiteUrl = webElement.findElement(By.className("sp-product-item-thumb")).findElement(By.tagName("a")).getAttribute("href");
 
                     // 카테고리 변환
                     if (krCategory.contains("운동")) {
@@ -321,15 +309,15 @@ public class AfterworkScheduler {
                         strCategory = "요리";
                     } else {
                         //Todo: 테스트 코드에서는 로그를 못찍으니 실제어플리케이션에서는 @sl4j를 활용한 log.info를 찍으십시오
-                        System.out.println("No Category");
+                        log.info("No Category");
                     }
-                    System.out.println("category = " + strCategory);
+                    log.info("category = " + strCategory);
 
                     Category category = categoryRepository.findByName(strCategory).orElse(null);
 
-                    Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+                    Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
 
-                    if(product == null) {
+                    if (product == null) {
                         product = Product.builder()
                                 .title(strTitle)
                                 .author(strAuthor)
@@ -344,7 +332,7 @@ public class AfterworkScheduler {
                                 .status(strStatus)
                                 .category(category)
                                 .build();
-                        newProducts.add(product);
+                        productRepository.save(product);
                     } else {
                         product.setPopularity(intPopularity);
                         product.setPrice(intPrice);
@@ -360,23 +348,23 @@ public class AfterworkScheduler {
                 pageNum++;
             }
         }
-        productRepository.saveAll(newProducts);
         productRepository.saveAll(updateProducts);
-        log.info("총 save하는 product size: "+ newProducts.size());
         log.info("총 update하는 product size: "+ updateProducts.size());
     }
 
     @Transactional
     public void crawlClass101(ChromeOptions options) {
-        WebDriver driver = new ChromeDriver(options);
+
         String siteName = "클래스101";
-        //statusChange(siteName);
+        productRepository.bulkStatusNWithSiteName(siteName);
 
-        List<Class101Category> enumValues = Arrays.asList(Class101Category.values());
-        for (int i = 0; i < enumValues.size(); i++) {
+        WebDriver driver = new ChromeDriver(options);
 
-            String krCategory = enumValues.get(i).getKrCategory();
-            String categoryCode = enumValues.get(i).getCategoryCode();
+        Class101Category[] enumValues = Class101Category.values();
+        for (Class101Category enumValue : enumValues) {
+
+            String krCategory = enumValue.getKrCategory();
+            String categoryCode = enumValue.getCategoryCode();
 
             String url = "https://class101.net/search?category=" + categoryCode + "&sort=likedOrder&state=sales";
 
@@ -395,8 +383,8 @@ public class AfterworkScheduler {
             InfiniteScrollForClass101(driver);
 
             List<WebElement> elList = driver.findElements(By.className("sc-iNqMTl"));
-
-            for (int j = 0; j < elList.size(); j++) {
+            List<Product> updateProducts = new ArrayList<>();
+            for (WebElement webElement : elList) {
                 String strTitle = null;
                 String strAuthor = null;
                 int intPrice = 0;
@@ -411,34 +399,33 @@ public class AfterworkScheduler {
                 boolean isOnline = true;
                 boolean isOffline = false;
 
-                try{
+                try {
                     //제목
-                    strTitle = elList.get(j).findElement(By.className("sc-bQdQlF")).getText();
+                    strTitle = webElement.findElement(By.className("sc-bQdQlF")).getText();
                 } catch (Exception e) {
                     e.printStackTrace();
                     continue;
                 }
-                strAuthor = elList.get(j).findElement(By.className("dbRciT")).getText().split("・")[1];
+                strAuthor = webElement.findElement(By.className("dbRciT")).getText().split("・")[1];
 
-                String strPopularity = elList.get(j).findElement(By.className("CountTag__Container-rjlblo-0")).getText();
+                String strPopularity = webElement.findElement(By.className("CountTag__Container-rjlblo-0")).getText();
                 intPopularity = PriceStringToIntForClass101(strPopularity);
 
-                strSiteUrl = elList.get(j).findElement(By.className("gfCFNQ")).getAttribute("href");
+                strSiteUrl = webElement.findElement(By.className("gfCFNQ")).getAttribute("href");
 
-                try{
+                try {
                     //int가격을 위한 사전작업
-                    strPrice = elList.get(j).findElement(By.className("iLryzw")).getText();
+                    strPrice = webElement.findElement(By.className("iLryzw")).getText();
                     strPriceInfo = strPrice;
                     intPrice = PriceStringToIntForClass101(strPrice.split("원")[0]);
 
                     //할인가 적용 가격
-                    if (strPrice.contains("월"))
-                    {
-                        strPrice = strPrice.replace(" ","");
-                        strPrice = strPrice.replace("월","");
-                        strPrice = strPrice.replace("개","");
-                        strPrice = strPrice.replace("(","");
-                        strPrice = strPrice.replace(")","");
+                    if (strPrice.contains("월")) {
+                        strPrice = strPrice.replace(" ", "");
+                        strPrice = strPrice.replace("월", "");
+                        strPrice = strPrice.replace("개", "");
+                        strPrice = strPrice.replace("(", "");
+                        strPrice = strPrice.replace(")", "");
 
                         strPriceInfo = strPrice.split("원")[0] + "원/월 x " + strPrice.split("원")[1];
                     }
@@ -447,24 +434,13 @@ public class AfterworkScheduler {
                     e.printStackTrace();
                 }
 
-                try{
+                try {
                     //이미지 경로
-                    strImgUrl = elList.get(j).findElement(By.tagName("picture")).findElement(By.tagName("img")).getAttribute("src");
-//                    strImgUrl = elList.get(j).findElement(By.className("blDEng")).findElement(By.tagName("img")).getAttribute("src");
+                    strImgUrl = webElement.findElement(By.tagName("picture")).findElement(By.tagName("img")).getAttribute("src");
                 } catch (Exception e) {
                     e.printStackTrace();
                     continue;
                 }
-
-                System.out.println("strTitle = " + strTitle);
-                System.out.println("strAuthor = " + strAuthor);
-                System.out.println("intPopularity = " + intPopularity);
-                System.out.println("intPrice = " + intPrice);
-                System.out.println("strPriceInfo = " + strPriceInfo);
-                System.out.println("strImgUrl = " + strImgUrl);
-                System.out.println("isOnline = " + isOnline);
-                System.out.println("strSiteUrl = " + strSiteUrl);
-                System.out.println("strSiteName = " + strSiteName);
 
                 //카테고리 변환
                 if (krCategory.contains("운동")) {
@@ -495,13 +471,11 @@ public class AfterworkScheduler {
                 } else if (krCategory.contains("요리")) {
                     strCategory = "요리";
                 } else {
-                    System.out.println("No Category");
+                    log.info("No Category");
                 }
-                System.out.println("category = " + strCategory);
-
                 Category category = categoryRepository.findByName(strCategory).orElse(null);
 
-                Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+                Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
 
                 if (product == null) {
                     product = Product.builder()
@@ -518,6 +492,8 @@ public class AfterworkScheduler {
                             .status(strStatus)
                             .category(category)
                             .build();
+
+                    productRepository.save(product);
                 } else {
                     product.setPopularity(intPopularity);
                     product.setPrice(intPrice);
@@ -525,21 +501,20 @@ public class AfterworkScheduler {
                     product.setImgUrl(strImgUrl);
                     product.setStatus(strStatus);
                     product.setSiteName(strSiteName);
-                }
 
-                productRepository.save(product);
+                    updateProducts.add(product);
+                }
             }
+            productRepository.saveAll(updateProducts);
+            log.info("총 update하는 product size: "+ updateProducts.size());
         }
 
         // 크롤링이 끝났을 경우 driver 종료
         try {
-            //드라이버가 null이 아니라면
-            if (driver != null) {
-                // 드라이버 연결 종료
-                driver.close(); // 드라이버 연결해제
-                // 프로세스 종료
-                driver.quit();
-            }
+            // 드라이버 연결 종료
+            driver.close(); // 드라이버 연결해제
+            // 프로세스 종료
+            driver.quit();
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
@@ -548,14 +523,16 @@ public class AfterworkScheduler {
     @Transactional
     public void crawlClassTok(ChromeOptions options) {
         // 크롬 설정을 담은 객체 생성
-        WebDriver driver = new ChromeDriver(options);
+
         String siteName = "클래스톡";
-        //statusChange(siteName);
+        productRepository.bulkStatusNWithSiteName(siteName);
 
-        List<ClasstokCategory> enumValues = Arrays.asList(ClasstokCategory.values());
-        for (int i = 0; i < enumValues.size(); i++) {
+        WebDriver driver = new ChromeDriver(options);
 
-            String krCategory = enumValues.get(i).getKrCategory();
+        ClasstokCategory[] enumValues = ClasstokCategory.values();
+
+        for (ClasstokCategory enumValue : enumValues) {
+            String krCategory = enumValue.getKrCategory();
 
             String url = "https://www.classtok.net/class/search?searchKey=" + krCategory;
 
@@ -574,8 +551,9 @@ public class AfterworkScheduler {
             InfiniteScroll(driver);
 
             List<WebElement> elList = driver.findElements(By.className("search-result__item"));
+            List<Product> updateProducts = new ArrayList<>();
 
-            for (int j = 0; j < elList.size(); j++) {
+            for (WebElement webElement : elList) {
                 String strTitle = null;
                 String strAuthor = null;
                 int intPrice = 0;
@@ -591,28 +569,26 @@ public class AfterworkScheduler {
                 boolean isOffline = false;
 
                 //제목
-                strTitle = elList.get(j).findElement(By.className("search-result__item-title")).getText();
+                strTitle = webElement.findElement(By.className("search-result__item-title")).getText();
 
                 //작성자
-                strAuthor = elList.get(j).findElement(By.className("search-result__item-coach")).getText();
+                strAuthor = webElement.findElement(By.className("search-result__item-coach")).getText();
 
-                String strPopularity = elList.get(j).findElement(By.className("search-result__item-member")).getText().split("명")[0];
+                String strPopularity = webElement.findElement(By.className("search-result__item-member")).getText().split("명")[0];
                 intPopularity = PriceStringToInt(strPopularity);
 
                 //int가격을 위한 사전작업
-                strPrice = elList.get(j).findElement(By.className("search-result__item-price")).findElement(By.className("search-result__item-sale-price")).getText();
+                strPrice = webElement.findElement(By.className("search-result__item-price")).findElement(By.className("search-result__item-sale-price")).getText();
                 intPrice = PriceStringToIntForClass101(strPrice);
 
                 //할인가 적용 가격
-//                strPriceInfo = elList.get(j).findElement(By.className("search-result__item-price")).getText();
                 strPriceInfo = strPrice + "원/월";
 
-
                 //이미지 경로
-                strImgUrl = elList.get(j).findElement(By.className("search-result__item-cover")).getAttribute("style").split("\"")[1];
+                strImgUrl = webElement.findElement(By.className("search-result__item-cover")).getAttribute("style").split("\"")[1];
 
                 //클릭 시 이동 경로
-                strSiteUrl = elList.get(j).findElement(By.className("search-result__item-link")).getAttribute("href");
+                strSiteUrl = webElement.findElement(By.className("search-result__item-link")).getAttribute("href");
 
                 //카테고리 변환
                 if (krCategory.contains("운동")) {
@@ -632,15 +608,13 @@ public class AfterworkScheduler {
                 } else if (krCategory.contains("요리")) {
                     strCategory = "요리";
                 } else {
-                    System.out.println("No Category");
+                    log.info("No Category");
                 }
-                System.out.println("category = " + strCategory);
-
                 Category category = categoryRepository.findByName(strCategory).orElse(null);
 
-                Product product = productRepository.findByTitleLikeAndCategory(strTitle,category).orElse(null);
+                Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
 
-                if(product == null) {
+                if (product == null) {
                     product = Product.builder()
                             .title(strTitle)
                             .author(strAuthor)
@@ -655,30 +629,29 @@ public class AfterworkScheduler {
                             .status(strStatus)
                             .category(category)
                             .build();
-                }
-                else {
+
+                    productRepository.save(product);
+                } else {
                     product.setPopularity(intPopularity);
                     product.setPrice(intPrice);
                     product.setPriceInfo(strPriceInfo);
                     product.setImgUrl(strImgUrl);
                     product.setStatus(strStatus);
                     product.setSiteName(strSiteName);
+
+                    updateProducts.add(product);
                 }
-
-
-                productRepository.save(product);
             }
+            productRepository.saveAll(updateProducts);
+            log.info("총 update하는 product size: "+ updateProducts.size());
         }
 
         // 크롤링이 끝났을 경우 driver 종료
         try {
-            //드라이버가 null이 아니라면
-            if (driver != null) {
-                // 드라이버 연결 종료
-                driver.close(); // 드라이버 연결해제
-                // 프로세스 종료
-                driver.quit();
-            }
+            // 드라이버 연결 종료
+            driver.close(); // 드라이버 연결해제
+            // 프로세스 종료
+            driver.quit();
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
