@@ -57,12 +57,12 @@ public class AfterworkScheduler {
 //
         crawlClass101(options);
 
-//        crawlHobby(options);
-//
-//        crawlMocha(options);
-//
-//        SeleniumListResponse infoList = talingMacro.sorted();
-//        crawlTaling(options, infoList);
+        crawlHobby(options);
+
+        crawlMocha(options);
+
+        SeleniumListResponse infoList = talingMacro.sorted();
+        crawlTaling(options, infoList);
 
         crawlHobbyInTheBox(options);
 
