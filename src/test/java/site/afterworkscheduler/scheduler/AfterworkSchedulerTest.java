@@ -1,6 +1,5 @@
 package site.afterworkscheduler.scheduler;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
@@ -39,11 +38,11 @@ class AfterworkSchedulerTest {
 
     @Test
     @DisplayName("DB 최신화 테스트_(테스트케이스:하비인더박스)")
-    @Transactional // test가 끝나면 롤백을 한다.
+    // test가 끝나면 롤백을 한다.
     void start_afterwork_scheduler() {
         // 프러덕트 테이블의 모든 컬럼을 N으로 바꾼다.
         String siteName = "하비인더박스";
-        productRepository.bulkStatusNWithSiteName(siteName);
+        //productRepository.bulkStatusNWithSiteName(siteName);
 
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -53,14 +52,13 @@ class AfterworkSchedulerTest {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("headless");
         WebDriver driver = new ChromeDriver(options);//
-//        String siteName = "하비인더박스";
-//        statusChange(siteName);
 
         List<HobyintheboxCategory> enumValues = Arrays.asList(HobyintheboxCategory.values());
-        List<Product> newProducts = new ArrayList<>();
-        List<Product> updateProducts = new ArrayList<>();
+
+        int newProductCount = 0;
+        int updateProductCount = 0;
+
         for (int i = 0; i < enumValues.size(); i++) {
-            //for (int i = 0; i < 3; i++) {
             int pageNum = 1;
             while (true) {
                 String krCategory = enumValues.get(i).getKrCategory();
@@ -174,37 +172,19 @@ class AfterworkSchedulerTest {
                                 .status(strStatus)
                                 .category(category)
                                 .build();
-                        newProducts.add(product);
+                        newProductCount ++;
+                        productRepository.save(product);
                     } else {
-                        product.setPopularity(intPopularity);
-                        product.setPrice(intPrice);
-                        product.setPriceInfo(strPriceInfo);
-                        product.setImgUrl(strImgUrl);
-                        product.setStatus(strStatus);
-                        product.setSiteName(strSiteName);
-                        //productService.updatePost(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
-                        //product.updateProduct(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
-                        updateProducts.add(product);
+                        product.updateProduct(intPopularity, intPrice, strPriceInfo,strImgUrl, strStatus, strSiteName);
+                        updateProductCount ++;
                     }
                 }
                 pageNum++;
             }
         }
-        productRepository.saveAll(newProducts);
-        productRepository.saveAll(updateProducts);
-        System.out.println("총 save하는 product size: "+ newProducts.size());
-        System.out.println("총 update하는 product size: "+ updateProducts.size());
+        System.out.println("총 save하는 product size: "+ newProductCount);
+        System.out.println("총 update하는 product size: "+ updateProductCount);
     }
-
-//    public void statusChange(String siteName) {
-//        List<Product> productList = productRepository.findAllBySiteName(siteName);
-//        if(productList.size() > 0){
-//            for (Product product : productList) {
-//                product.setStatus("N");
-//                productRepository.save(product);
-//            }
-//        }
-//    }
 
     public int PriceStringToInt(String price){
         price = price.replace(" ", "");
