@@ -384,7 +384,7 @@ public class AfterworkScheduler {
 
             List<WebElement> elList = driver.findElements(By.xpath("//*[@id=\"wrapper\"]/div[1]/main/div/div/div[4]/div[1]/ul/li"));
             elList.addAll(driver.findElements(By.xpath("//*[@id=\"wrapper\"]/div[1]/main/div/div/div[4]/div[3]/div/div[1]/ul/li")));
-            
+
             List<Product> updateProducts = new ArrayList<>();
             for (WebElement webElement : elList) {
                 String strTitle = null;
