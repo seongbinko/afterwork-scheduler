@@ -39,8 +39,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-//    @Scheduled(cron = "0 22 12 * * *")
-    @Scheduled(cron = "* 0/43 21 * * *")
+    @Scheduled(cron = "0 22 12 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -52,24 +51,24 @@ public class AfterworkScheduler {
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
-//        productRepository.bulkStatusN();
+        productRepository.bulkStatusN();
 
-//        crawlClassTok(options);
-//
+        crawlClassTok(options);
+
         crawlClass101(options);
-//
-//        crawlHobby(options);
-//
+
+        crawlHobby(options);
+
         crawlMocha(options);
 
         SeleniumListResponse infoList = talingMacro.sorted();
         crawlTaling(options, infoList);
 
-//        crawlHobbyInTheBox(options);
-//
-//        crawlMybiskit(options);
-//        long end = System.currentTimeMillis();
-//        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
+        crawlHobbyInTheBox(options);
+
+        crawlMybiskit(options);
+        long end = System.currentTimeMillis();
+        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
@@ -1028,7 +1027,7 @@ public class AfterworkScheduler {
                         String location_temp = product_base.get(i).findElement(By.className("location")).getText();
                         String location = null;
                         boolean isOnline = false;
-                        boolean isOffline = true;
+                        boolean isOffline = false;
                         String[] arr = null;
                         StringBuilder sb = new StringBuilder();
 
@@ -1088,9 +1087,9 @@ public class AfterworkScheduler {
                             isOnline = true;
                             String[] check = location.split(",");
                             for(int j = 0; j < check.length; j++){
-                                if(!check[j].equals("온라인") || !check[j].equals("녹화영상") || !check[j].equals("튜터전자책")){
-                                    isOffline = false;
-                                    j = check.length;
+                                if(!(check[j].equals("온라인") || check[j].equals("녹화영상") || check[j].equals("튜터전자책"))){
+                                    isOffline = true;
+                                    break;
                                 }
                             }
                         }
