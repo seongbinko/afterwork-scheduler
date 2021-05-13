@@ -19,7 +19,7 @@
 
 - 코드 개선을 통해 데이터 최신화 소요시간이 2시간 -> 1시간(최종)으로 코드 개선이 이루어짐
   - MariaDB rewriteBatchedStatements=true 옵션 사용
-  - product status Y -> N으로 변경하는 벌크처리
+  - product status Y -> N으로 변경하는 부분 JPA 벌크연산으로 처리
   - save 메소드 대신 saveAll 메소드 사용
 
 ## 개발 타임라인
