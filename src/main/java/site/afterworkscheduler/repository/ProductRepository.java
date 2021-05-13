@@ -15,7 +15,6 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Optional<Product> findByTitleLikeAndCategory(String title, Category category);
-    Optional<Product> findByTitleLikeAndCategoryAndLocation(String title, Category category, String location);
     List<Product>findAllBySiteName(String siteName);
 
     @Modifying(clearAutomatically = true)

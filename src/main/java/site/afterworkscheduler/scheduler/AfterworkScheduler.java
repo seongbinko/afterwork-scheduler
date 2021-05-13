@@ -39,7 +39,8 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 22 12 * * *")
+//    @Scheduled(cron = "0 22 12 * * *")
+    @Scheduled(cron = "* 0/43 21 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -53,22 +54,22 @@ public class AfterworkScheduler {
 
 //        productRepository.bulkStatusN();
 
-        crawlClassTok(options);
-
+//        crawlClassTok(options);
+//
         crawlClass101(options);
-
-        crawlHobby(options);
-
+//
+//        crawlHobby(options);
+//
         crawlMocha(options);
 
         SeleniumListResponse infoList = talingMacro.sorted();
         crawlTaling(options, infoList);
 
-        crawlHobbyInTheBox(options);
-
-        crawlMybiskit(options);
-        long end = System.currentTimeMillis();
-        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
+//        crawlHobbyInTheBox(options);
+//
+//        crawlMybiskit(options);
+//        long end = System.currentTimeMillis();
+//        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
     }
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
@@ -732,7 +733,7 @@ public class AfterworkScheduler {
 
                 Category category = categoryRepository.findByName(category_temp).orElse(null);
 
-                Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+                Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
 
                 if(product == null){
                     product = Product.builder()
@@ -792,10 +793,11 @@ public class AfterworkScheduler {
         List<Product> updateProducts = new ArrayList<>();
         String siteName = "모카클래스";
         productRepository.bulkStatusNWithSiteName(siteName);
-        // statusChange(siteName);
         WebDriver driver = new ChromeDriver(options);
         String[] moveCategoryName = {"핸드메이드·수공예", "쿠킹+클래스", "플라워+레슨", "드로잉", "음악", "요가·필라테스", "레져·스포츠", "자기계발", "Live+클래스"};
         int moveCategory = 0;
+        String[] moveIsOnlineName = {"false", "true"};
+        int moveIsOnline = 0;
         while(moveCategory < moveCategoryName.length) {
             String category_temp = null;
             if(moveCategory == 0) category_temp = "공예";
@@ -808,7 +810,7 @@ public class AfterworkScheduler {
             else if(moveCategory == 7) category_temp = "교육";
             else if(moveCategory == 8) category_temp = "교육";
 
-            String url = "https://mochaclass.com/search?keyword=&location="+ "&category="+moveCategoryName[moveCategory];
+            String url = "https://mochaclass.com/Search?isOnlineClass="+moveIsOnlineName[moveIsOnline]+"&where=list&category="+moveCategoryName[moveCategory];
             driver.get(url);
 
             while (true) {
@@ -821,6 +823,7 @@ public class AfterworkScheduler {
                 try{
                     base = driver.findElement(By.className("MuiGrid-root"));
                 }catch(Exception e){
+                    moveIsOnline = 0;
                     break;
                 }
                 final List<WebElement> base2 = base.findElements(By.tagName("a"));
@@ -837,9 +840,13 @@ public class AfterworkScheduler {
                     if(title.contains("온라인")){
                         isOnline = true;
                         isOffline = false;
-                    }else if(moveCategory == 8){
-                        isOnline = true;
+                    }
+                    if(moveIsOnline == 0){
+                        isOffline = true;
+                        isOnline = false;
+                    }else if(moveIsOnline == 1){
                         isOffline = false;
+                        isOnline = true;
                     }
                     String location = desc.get(2).getText();
                     String price_temp = desc.get(3).getText();
@@ -868,7 +875,7 @@ public class AfterworkScheduler {
                     String siteUrl = base2.get(i).getAttribute("href");
                     Category category = categoryRepository.findByName(category_temp).orElse(null);
 
-                    Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+                    Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
 
                     if(product == null){
                         product = Product.builder()
@@ -901,15 +908,22 @@ public class AfterworkScheduler {
                         product.setCategory(category);
                         updateProducts.add(product);
                     }
-
                 }
                 if (nextPage.contains("disabled")) {
+                    if(moveIsOnline == 0){
+                        moveIsOnline = 1;
+                    } else if(moveIsOnline == 1){
+                        moveIsOnline = 0;
+                    }
                     break;
                 } else {
                     multiPage.get(multiPage.size() - 1).click();
                 }
             }
-            moveCategory++;
+
+            if(moveIsOnline == 0){
+                moveCategory++;
+            }
         }
         productRepository.saveAll(updateProducts);
         log.info("총 update하는 product size: "+ updateProducts.size());
@@ -1070,13 +1084,14 @@ public class AfterworkScheduler {
                             location = sb.toString();
                         }
 
-                        if(location.contains("온라인") || title.contains("온라인")){
-                            if(location.length() == 3){
-                                isOffline = false;
-                                isOnline = true;
-                            }else{
-                                isOffline = true;
-                                isOnline = true;
+                        if(location.contains("온라인") || title.contains("온라인") || location.contains("녹화영상") || location.contains("튜터전자책")){
+                            isOnline = true;
+                            String[] check = location.split(",");
+                            for(int j = 0; j < check.length; j++){
+                                if(!check[j].equals("온라인") || !check[j].equals("녹화영상") || !check[j].equals("튜터전자책")){
+                                    isOffline = false;
+                                    j = check.length;
+                                }
                             }
                         }
 
@@ -1131,7 +1146,7 @@ public class AfterworkScheduler {
 
                         Category category = categoryRepository.findByName(category_temp).orElse(null);
 
-                        Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+                        Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
 
                         if(product == null){
                             product = Product.builder()
