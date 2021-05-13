@@ -30,7 +30,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -39,7 +39,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 22 12 * * *")
+    @Scheduled(cron = "0 22 23 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -382,7 +382,9 @@ public class AfterworkScheduler {
             // 무한 스크롤
             InfiniteScrollForClass101(driver);
 
-            List<WebElement> elList = driver.findElements(By.className("sc-iNqMTl"));
+            List<WebElement> elList = driver.findElements(By.xpath("//*[@id=\"wrapper\"]/div[1]/main/div/div/div[4]/div[1]/ul/li"));
+            elList.addAll(driver.findElements(By.xpath("//*[@id=\"wrapper\"]/div[1]/main/div/div/div[4]/div[3]/div/div[1]/ul/li")));
+
             List<Product> updateProducts = new ArrayList<>();
             for (WebElement webElement : elList) {
                 String strTitle = null;
@@ -401,21 +403,21 @@ public class AfterworkScheduler {
 
                 try {
                     //제목
-                    strTitle = webElement.findElement(By.className("sc-bQdQlF")).getText();
+                    strTitle = webElement.findElement(By.xpath("a/div/div[2]/div[2]")).getText();
                 } catch (Exception e) {
                     e.printStackTrace();
                     continue;
                 }
-                strAuthor = webElement.findElement(By.className("dbRciT")).getText().split("・")[1];
+                strAuthor = webElement.findElement(By.xpath("a/div/div[2]/div[1]/div")).getText().split("・")[1];
 
-                String strPopularity = webElement.findElement(By.className("CountTag__Container-rjlblo-0")).getText();
+                String strPopularity = webElement.findElement(By.xpath("a/div/div[2]/div[3]/div/div/div[1]")).getText();
                 intPopularity = PriceStringToIntForClass101(strPopularity);
 
-                strSiteUrl = webElement.findElement(By.className("gfCFNQ")).getAttribute("href");
+                strSiteUrl = webElement.findElement(By.xpath("a")).getAttribute("href");
 
                 try {
                     //int가격을 위한 사전작업
-                    strPrice = webElement.findElement(By.className("iLryzw")).getText();
+                    strPrice = webElement.findElement(By.xpath("a/div/div[5]")).getText();
                     strPriceInfo = strPrice;
                     intPrice = PriceStringToIntForClass101(strPrice.split("원")[0]);
 
