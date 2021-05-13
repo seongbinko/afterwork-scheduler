@@ -1,4 +1,16 @@
-# AFTERWORK Scheduler
+# AFTER WORK - BACKEND SCHEDULER REPOSITORY
+
+### AFTER WORK SERVICE URL
+
+- https://afterwork.co.kr/
+
+### AFTER WORK - FRONT REPOSITORY
+
+- https://github.com/miniPinetree/_AfterWork
+
+### AFTER WORK - BACKEND SERVER REPOSITORY
+
+- https://github.com/seongbinko/afterwork
 
 ## 개요
 
@@ -39,5 +51,5 @@
 | 2021.05.09 | 상품의 isOffline 데이터 추가 - [김남석] |
 | 2021.05.10 | 상품의 isOffline 데이터 추가, 인기도 데이터가 삽입이 안되는 현상 fix - [최재성] <br/> Afterwork-Scheduler 실행  시간 1시간 10분 - [최재성] |
 | 2021.05.11 | 상품에 isOffline isOnline 이 둘다 false 현상 fix - [최재성] <br/> 성능 개선을 위한 전반적인 코드 수정, Y->N으로 변경 하는 기능을 일괄처리로 전환, 풀 받았을때 크롬 경로를 쉽게 지정 할 수 있는 메소드 추가, 남석/재성 크롤링 코드를 한개로 통일 및 수정, update 및 new 상품에 대한 처리를 개선 (List에 저장뒤 한번에 saveAll()), Hobbyinthebox 기능에 대한 테스트 코드 작성 - [고성빈] |
-| 2021.05.12 | saveAll()을 하게 되면 중복 현상이 발생 하여 new 상품에 대한 처리는 즉각 save()로 변경 - [김남석] [최재성] <br/> 작성한 테스트 코드를 JPA 변경감지에 맞게 수정, License 추가 - [고성빈] <br/> Afterwork-Scheduler 실행  시간 1시간 - [김남석] [최재성] |
+| 2021.05.12 | saveAll()을 하게 되면 중복 현상이 발생 하여 new 상품에 대한 처리는 즉각 save()로 변경 - [김남석] [최재성] <br/> 작성한 테스트 코드를 JPA 상태감지 기능으로 수정 , License 추가 - [고성빈] <br/> Afterwork-Scheduler 실행  시간 1시간 - [김남석] [최재성] |
   
