@@ -1,10 +1,20 @@
 # AFTER WORK - BACKEND SCHEDULER REPOSITORY
 
-### AFTER WORK SERVICE URL
+## [AFTER WORK](https://afterwork.co.kr/) 서비스 소개
 
-- https://afterwork.co.kr/
+- 넘쳐나는 취미 플랫폼 클래스들을 한 번에 모아볼 수 있는 사이트
 
-### AFTER WORK - FRONT REPOSITORY
+- 유명 플랫폼 7개사 클래스 인기, 가격 한 번에 비교
+- 구글/네이버/카톡 아이디로 간편하게 소셜 로그인
+- 사용자별 관심 지역, 분야 설정을 통한 맞춤 추천
+
+## 🎯 Target
+
+- 퇴근 후 뭐하지? 고민하는 직장인
+- 직장인 58% 재택근무 경험…90% “증가된 여가시간에 새 취미생활 하고파” <br/> ('20.03 직장인 소셜미디어 블라인드 설문조사 결과)
+- 넘쳐나는 취미 플랫폼과 클래스 정보들로 혼란스러운 이들
+
+### AFTER WORK - FRONTEND REPOSITORY
 
 - https://github.com/miniPinetree/_AfterWork
 
