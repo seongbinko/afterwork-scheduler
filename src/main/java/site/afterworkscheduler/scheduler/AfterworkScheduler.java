@@ -30,7 +30,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -39,7 +39,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 22 23 * * *")
+    @Scheduled(cron = "0 24 1 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -734,7 +734,7 @@ public class AfterworkScheduler {
 
                 Category category = categoryRepository.findByName(category_temp).orElse(null);
 
-                Product product = productRepository.findByTitleLikeAndCategoryAndLocation(title, category, location).orElse(null);
+                Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
 
                 if(product == null){
                     product = Product.builder()
