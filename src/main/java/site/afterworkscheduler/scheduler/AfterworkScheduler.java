@@ -67,6 +67,7 @@ public class AfterworkScheduler {
         crawlHobbyInTheBox(options);
 
         crawlMybiskit(options);
+
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
     }
@@ -1007,6 +1008,7 @@ public class AfterworkScheduler {
                     final List<WebElement> product_base = base.findElements(By.className("cont2_class"));
                     int size = product_base.size();
                     for (int i = 0; i < size; i++) {
+                        int imgUrlChk = 0;
                         //                Category
                         String category_temp = cateList.get(cateListCount).getCategoryLabel();
                         //                Image Url
@@ -1014,13 +1016,19 @@ public class AfterworkScheduler {
                         String found = "";
                         if(imgUrl_temp.contains("s3.")){
                             found = "s3.";
+                            imgUrlChk = 1;
                         }else if(imgUrl_temp.contains("img.")){
                             found = "img.";
+                            imgUrlChk = 1;
                         }
-                        int imgUrl_index = imgUrl_temp.indexOf(found);
-                        String http = "https://";
-                        imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
-                        String imgUrl = http + imgUrl_temp;
+                        String imgUrl = null;
+                        if(imgUrlChk == 0) continue;
+                        if(imgUrlChk == 1){
+                            int imgUrl_index = imgUrl_temp.indexOf(found);
+                            String http = "https://";
+                            imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
+                            imgUrl = http + imgUrl_temp;
+                        }
                         //                Author
                         String author = product_base.get(i).findElement(By.className("name")).getText();
                         //                Title
@@ -1146,7 +1154,6 @@ public class AfterworkScheduler {
                         }
 
                         Category category = categoryRepository.findByName(category_temp).orElse(null);
-
                         Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
 
                         if(product == null){
