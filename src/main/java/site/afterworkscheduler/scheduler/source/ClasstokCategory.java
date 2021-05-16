@@ -15,7 +15,7 @@ public enum ClasstokCategory {
     flanguage("외국어"),
     education("교육");
 
-    private String krCategory;
+    private final String krCategory;
 
     ClasstokCategory(String krCategory){
         this.krCategory = krCategory;

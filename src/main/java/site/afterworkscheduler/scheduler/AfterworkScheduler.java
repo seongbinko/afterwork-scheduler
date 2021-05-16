@@ -15,10 +15,7 @@ import site.afterworkscheduler.entity.Category;
 import site.afterworkscheduler.entity.Product;
 import site.afterworkscheduler.repository.CategoryRepository;
 import site.afterworkscheduler.repository.ProductRepository;
-import site.afterworkscheduler.scheduler.source.ChromeDriverPath;
-import site.afterworkscheduler.scheduler.source.Class101Category;
-import site.afterworkscheduler.scheduler.source.ClasstokCategory;
-import site.afterworkscheduler.scheduler.source.HobyintheboxCategory;
+import site.afterworkscheduler.scheduler.source.*;
 
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -30,7 +27,7 @@ import java.util.List;
 public class AfterworkScheduler {
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -39,11 +36,11 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 24 1 * * *")
+    @Scheduled(cron = "0 0 4 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
         ChromeOptions options = new ChromeOptions();
@@ -51,9 +48,7 @@ public class AfterworkScheduler {
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
-//        productRepository.bulkStatusN();
-
-        crawlClassTok(options);
+//        crawlClassTok(options);
 
         crawlClass101(options);
 
@@ -68,9 +63,12 @@ public class AfterworkScheduler {
 
         crawlMybiskit(options);
 
+        crawlIdus(options);
+
         long end = System.currentTimeMillis();
-        log.info("스케줄러 실행 시간 : " + ( end - start )/1000.0 +"초");
+        log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
     }
+
     @Transactional
     public void crawlMybiskit(ChromeOptions options) {
         String siteName = "마이비스킷";
@@ -189,7 +187,7 @@ public class AfterworkScheduler {
             }
         }
         productRepository.saveAll(updateProducts);
-        log.info("총 update하는 product size: "+ updateProducts.size());
+        log.info("총 update하는 product size: " + updateProducts.size());
 
         // 크롤링이 끝났을 경우 driver 종료
         try {
@@ -212,7 +210,7 @@ public class AfterworkScheduler {
 
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -350,7 +348,7 @@ public class AfterworkScheduler {
             }
         }
         productRepository.saveAll(updateProducts);
-        log.info("총 update하는 product size: "+ updateProducts.size());
+        log.info("총 update하는 product size: " + updateProducts.size());
     }
 
     @Transactional
@@ -509,7 +507,7 @@ public class AfterworkScheduler {
                 }
             }
             productRepository.saveAll(updateProducts);
-            log.info("총 update하는 product size: "+ updateProducts.size());
+            log.info("총 update하는 product size: " + updateProducts.size());
         }
 
         // 크롤링이 끝났을 경우 driver 종료
@@ -646,7 +644,7 @@ public class AfterworkScheduler {
                 }
             }
             productRepository.saveAll(updateProducts);
-            log.info("총 update하는 product size: "+ updateProducts.size());
+            log.info("총 update하는 product size: " + updateProducts.size());
         }
 
         // 크롤링이 끝났을 경우 driver 종료
@@ -655,6 +653,331 @@ public class AfterworkScheduler {
             driver.close(); // 드라이버 연결해제
             // 프로세스 종료
             driver.quit();
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void crawlIdus(ChromeOptions options) {
+        String siteName = "아이디어스";
+        productRepository.bulkStatusNWithSiteName(siteName);
+
+        crawlIdusOnline(siteName, options);
+        crawlIdusOffline(siteName, options);
+    }
+
+    @Transactional
+    public void crawlIdusOnline(String strSiteName, ChromeOptions options) {
+
+        WebDriver driver = new ChromeDriver(options);
+        WebDriver driverDetail = new ChromeDriver(options);
+
+        //온라인 클래스!
+        String strUrl = "https://www.idus.com/oc";
+
+        //webDriver를 해당 url로 이동한다.
+        driver.get(strUrl);
+
+        //브라우저 이동시 생기는 로드시간을 기다린다.
+        //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // 무한 스크롤
+        InfiniteScroll(driver);
+
+        WebElement webElementMain = driver.findElement(By.className("class-list"));
+
+        List<WebElement> webElementList = webElementMain.findElements(By.className("ui_grid__item"));
+
+        List<Product> updateProducts = new ArrayList<>();
+
+        for (WebElement webElement : webElementList) {
+            String strTitle = null;
+            String strAuthor = null;
+            int intPrice = 0;
+            String strPrice = null;
+            String strPriceInfo = "0원";
+            String strImgUrl = null;
+            String strSiteUrl = null;
+            String strCategory = null;
+            String strStatus = "Y";
+            int intPopularity = 0;
+            String strPopularity = null;
+            boolean isOnline = true;
+            boolean isOffline = false;
+
+            strTitle = webElement.findElement(By.className("class-name")).getText();
+
+            // 가격이 없는 경우 예외처리
+            strPrice = webElement.findElement(By.className("sale")).getText();
+            strPriceInfo = strPrice.replace(" ", "");
+            intPrice = PriceStringToInt(strPrice);
+
+            strImgUrl = webElement.findElement(By.className("thumb-img")).getAttribute("style").split("\"")[1];
+
+            // 연결 사이트 Idus에 맞춰넣음
+            strSiteUrl = webElement.findElement(By.tagName("a")).getAttribute("href");
+            strAuthor = webElement.findElement(By.className("label")).getText().split("·")[1];
+            strCategory = webElement.findElement(By.className("label")).getText().split("·")[0];
+
+            try {
+                driverDetail.get(strSiteUrl);
+
+                strPopularity = driverDetail.findElement(By.className("oc-star-icon-count")).getText();
+                intPopularity = PriceStringToInt(strPopularity);
+            } catch (Exception e) {
+                continue;
+            }
+
+            //브라우저 이동시 생기는 로드시간을 기다린다.
+            //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 0.1초를 대기한다.
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            //카테고리 변환
+            if (strCategory.contains("유리")
+                    || strCategory.contains("플라워")
+                    || strCategory.contains("우드")
+                    || strCategory.contains("도자")
+                    || strCategory.contains("캔들")
+                    || strCategory.contains("비누")
+                    || strCategory.contains("페이퍼아트")
+                    || strCategory.contains("금속")
+                    || strCategory.contains("가죽")
+                    || strCategory.contains("자개")
+                    || strCategory.contains("레진")
+                    || strCategory.contains("점토")
+                    || strCategory.contains("바느질")
+                    || strCategory.contains("뜨개")
+                    || strCategory.contains("위빙")) {
+                strCategory = "공예";
+            } else if (strCategory.contains("디지털")
+                    || strCategory.contains("드로잉")
+                    || strCategory.contains("유화")
+                    || strCategory.contains("수채화")
+                    || strCategory.contains("색연필")
+                    || strCategory.contains("캘리그래피")
+                    || strCategory.contains("실크스크린")
+                    || strCategory.contains("뷰티")) {
+                strCategory = "아트";
+            } else if (strCategory.contains("쿠킹")
+                    || strCategory.contains("디저트")) {
+                strCategory = "요리";
+            } else {
+                System.out.println("No Category");
+            }
+
+            Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+            Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
+
+            if (product == null) {
+                product = Product.builder()
+                        .title(strTitle)
+                        .author(strAuthor)
+                        .popularity(intPopularity)
+                        .price(intPrice)
+                        .priceInfo(strPriceInfo)
+                        .imgUrl(strImgUrl)
+                        .isOnline(isOnline)
+                        .isOffline(isOffline)
+                        .siteUrl(strSiteUrl)
+                        .siteName(strSiteName)
+                        .status(strStatus)
+                        .category(category)
+                        .build();
+
+                productRepository.save(product);
+            } else {
+                product.setPopularity(intPopularity);
+                product.setPrice(intPrice);
+                product.setPriceInfo(strPriceInfo);
+                product.setImgUrl(strImgUrl);
+                product.setStatus(strStatus);
+                product.setSiteName(strSiteName);
+
+                updateProducts.add(product);
+            }
+        }
+        productRepository.saveAll(updateProducts);
+        log.info("Idus Online 총 update하는 product size: " + updateProducts.size());
+
+        // 크롤링이 끝났을 경우 driver 종료
+        try {
+            // 드라이버 연결 종료
+            driver.close();
+            driverDetail.close(); // 드라이버 연결해제
+            // 프로세스 종료
+            driver.quit();
+            driverDetail.quit();
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void crawlIdusOffline(String strSiteName, ChromeOptions options) {
+
+        WebDriver driver = new ChromeDriver(options);
+        WebDriver driverDetail = new ChromeDriver(options);
+
+        IdusCategory[] enumValues = IdusCategory.values();
+        List<Product> updateProducts = new ArrayList<>();
+        for (IdusCategory enumValue : enumValues) {
+
+            String krCategory = enumValue.getKrCategory();
+            int numCategory = enumValue.getNum();
+
+            String strUrl = "https://www.idus.com/c/category/" + numCategory;
+
+            //webDriver를 해당 url로 이동한다.
+            driver.get(strUrl);
+
+            //브라우저 이동시 생기는 로드시간을 기다린다.
+            //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 1초를 대기한다.
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // 무한 스크롤
+            InfiniteScroll(driver);
+
+            List<WebElement> webElementList = driver.findElements(By.className("ui_grid__item"));
+
+            for (WebElement webElement : webElementList) {
+                String strTitle = null;
+                String strAuthor = null;
+                int intPrice = 0;
+                String strPrice = null;
+                String strPriceInfo = null;
+                String strImgUrl = null;
+                String strSiteUrl = null;
+                String strCategory = krCategory;
+                String strStatus = "Y";
+                int intPopularity = 0;
+                String strPopularity = null;
+                String strLocation = null;
+                boolean isOnline = false;
+                boolean isOffline = true;
+
+                strTitle = webElement.findElement(By.className("ui_card__title")).getText();
+
+                try {
+                    strPopularity = webElement.findElement(By.className("ui_rating__label")).getText();
+
+                    strPopularity = strPopularity.replace("(", "");
+                    strPopularity = strPopularity.replace(")", "");
+
+                    intPopularity = Integer.parseInt(strPopularity);
+                } catch (Exception ignore) {
+
+                }
+
+                strLocation = webElement.findElement(By.className("ui_card__overlay--label")).getText();
+
+                strImgUrl = webElement.findElement(By.className("ui_card__imgcover")).findElement(By.tagName("a")).getAttribute("data-lazy-img");
+
+                // 연결 사이트 mybiskit에 맞춰넣음
+                strSiteUrl = webElement.findElement(By.className("ui_card__imgcover")).findElement(By.tagName("a")).getAttribute("href");
+
+                driverDetail.get(strSiteUrl);
+
+                //브라우저 이동시 생기는 로드시간을 기다린다.
+                //HTTP 응답속도보다 자바의 컴파일 속도가 더 빠르기 때문에 임의적으로 0.1초를 대기한다.
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    strPrice = driverDetail.findElement(By.className("price_tag__strong")).getText();
+                    intPrice = PriceStringToInt(strPrice);
+                    strPriceInfo = strPrice;
+
+                    strAuthor = driverDetail.findElement(By.className("artist_card__label")).getText();
+                }
+                catch (Exception ignore){
+
+                }
+
+                System.out.println("strTitle = " + strTitle);
+                System.out.println("strAuthor = " + strAuthor);
+                System.out.println("strLocation = " + strLocation);
+                System.out.println("strImgUrl = " + strImgUrl);
+                System.out.println("strSiteUrl = " + strSiteUrl);
+                System.out.println("intPrice = " + intPrice);
+                System.out.println("strPriceInfo = " + strPriceInfo);
+                System.out.println("intPopularity = " + intPopularity);
+
+                //카테고리 변환
+                if (strCategory.contains("공예")) {
+                    strCategory = "공예";
+                } else if (strCategory.contains("미술")
+                        || strCategory.contains("플라워")
+                        || strCategory.contains("뷰티")) {
+                    strCategory = "아트";
+                } else if (strCategory.contains("요리")) {
+                    strCategory = "요리";
+                } else {
+                    System.out.println("No Category");
+                }
+
+                Category category = categoryRepository.findByName(strCategory).orElse(null);
+
+                Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
+
+                if (product == null) {
+                    product = Product.builder()
+                            .title(strTitle)
+                            .author(strAuthor)
+                            .popularity(intPopularity)
+                            .price(intPrice)
+                            .priceInfo(strPriceInfo)
+                            .imgUrl(strImgUrl)
+                            .isOnline(isOnline)
+                            .isOffline(isOffline)
+                            .location(strLocation)
+                            .siteUrl(strSiteUrl)
+                            .siteName(strSiteName)
+                            .status(strStatus)
+                            .category(category)
+                            .build();
+
+                    productRepository.save(product);
+                } else {
+                    product.setPopularity(intPopularity);
+                    product.setPrice(intPrice);
+                    product.setPriceInfo(strPriceInfo);
+                    product.setImgUrl(strImgUrl);
+                    product.setStatus(strStatus);
+                    product.setSiteName(strSiteName);
+
+                    updateProducts.add(product);
+                }
+            }
+        }
+        productRepository.saveAll(updateProducts);
+        log.info("Idus Offline 총 update하는 product size: " + updateProducts.size());
+
+        // 크롤링이 끝났을 경우 driver 종료
+        try {
+            // 드라이버 연결 종료
+            driver.close();
+            driverDetail.close(); // 드라이버 연결해제
+            // 프로세스 종료
+            driver.quit();
+            driverDetail.quit();
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
@@ -1260,8 +1583,8 @@ public class AfterworkScheduler {
 
             Object new_height = jse.executeScript("return document.body.scrollHeight");
 
-            System.out.println("last_height = " + last_height);
-            System.out.println("new_height = " + new_height);
+            log.info("last_height = " + last_height);
+            log.info("new_height = " + new_height);
 
             // 스크롤을 내렸음에도 불구하고 이전과 같다면 제일 밑으로 확인된다.
             if (new_height.toString().equals(last_height.toString())) {
@@ -1299,8 +1622,8 @@ public class AfterworkScheduler {
 
             Object new_height = jse.executeScript("return document.body.scrollHeight");
 
-            System.out.println("last_height = " + last_height);
-            System.out.println("new_height = " + new_height);
+            log.info("last_height = " + last_height);
+            log.info("new_height = " + new_height);
 
             // 스크롤을 내렸음에도 불구하고 이전과 같다면 제일 밑으로 확인된다.
             if (new_height.toString().equals(last_height.toString())) {
@@ -1316,6 +1639,8 @@ public class AfterworkScheduler {
         price = price.replace(" ", "");
         price = price.replace(",", "");
         price = price.replace("원", "");
+        price = price.replace("월", "");
+        price = price.replace("/", "");
 
         return Integer.valueOf(price);
     }

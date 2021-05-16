@@ -18,8 +18,8 @@ public enum HobyintheboxCategory {
     beadscraft("비즈공예",73),
     gardening("가드닝",59);
 
-    private String krCategory;
-    private int num;
+    private final String krCategory;
+    private final int num;
 
     HobyintheboxCategory(String krCategory, int num) {
         this.krCategory = krCategory;
