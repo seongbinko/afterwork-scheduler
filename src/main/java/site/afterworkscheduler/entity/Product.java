@@ -55,6 +55,10 @@ public class Product extends BaseTimeEntity{
     @Builder.Default
     List<Collect> collects = new ArrayList<>();
 
+    private boolean isRecommendOnline;
+
+    private boolean isRecommendOffline;
+
     public void updateProduct(int popularity, int price, String priceInfo, String imgUrl, String status, String siteName) {
         this.popularity = popularity;
         this.price = price;
