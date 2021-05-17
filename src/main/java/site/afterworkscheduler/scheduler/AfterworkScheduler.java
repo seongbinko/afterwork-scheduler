@@ -17,6 +17,9 @@ import site.afterworkscheduler.repository.CategoryRepository;
 import site.afterworkscheduler.repository.ProductRepository;
 import site.afterworkscheduler.scheduler.source.*;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +28,9 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class AfterworkScheduler {
+
+    @PersistenceContext
+    EntityManager em;
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
     static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
@@ -64,6 +70,10 @@ public class AfterworkScheduler {
         crawlMybiskit(options);
 
         crawlIdus(options);
+
+        setRecommendOnline();
+
+        setRecommendOffline();
 
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
@@ -1547,6 +1557,48 @@ public class AfterworkScheduler {
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    @Transactional
+    public void setRecommendOnline(){
+
+        productRepository.bulkIsRecommendOnline0WithSiteName();
+
+        StringBuilder jpql = new StringBuilder();
+        jpql.append("SELECT p FROM Product p WHERE p.isOnline = true and p.status = 'Y' GROUP BY p.title ORDER BY rand()");
+        Query query = em.createQuery(String.valueOf(jpql));
+        query.setMaxResults(12);
+
+        List<Product> productList = query.getResultList();
+
+        List<Product> updateProducts = new ArrayList<>();
+        for (Product product : productList){
+            product.setRecommendOnline(true);
+            updateProducts.add(product);
+        }
+
+        productRepository.saveAll(updateProducts);
+    }
+
+    @Transactional
+    public void setRecommendOffline(){
+
+        productRepository.bulkIsRecommendOffline0WithSiteName();
+
+        StringBuilder jpql = new StringBuilder();
+        jpql.append("SELECT p FROM Product p WHERE p.isOffline = true and p.status = 'Y' GROUP BY p.title ORDER BY rand()");
+        Query query = em.createQuery(String.valueOf(jpql));
+        query.setMaxResults(12);
+
+        List<Product> productList = query.getResultList();
+
+        List<Product> updateProducts = new ArrayList<>();
+        for (Product product : productList){
+            product.setRecommendOffline(true);
+            updateProducts.add(product);
+        }
+
+        productRepository.saveAll(updateProducts);
     }
 
 //    public void statusChange(String siteName) {
