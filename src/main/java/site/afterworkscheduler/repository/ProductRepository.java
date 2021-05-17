@@ -27,9 +27,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Modifying(clearAutomatically = true)
     @Query("update Product p set p.isRecommendOnline = false where p.isRecommendOnline = true")
-    void bulkIsRecommendOnline0WithSiteName();
+    void bulkIsRecommendOnlineFalse();
 
     @Modifying(clearAutomatically = true)
     @Query("update Product p set p.isRecommendOffline = false where p.isRecommendOffline = true")
-    void bulkIsRecommendOffline0WithSiteName();
+    void bulkIsRecommendOfflineFalse();
 }

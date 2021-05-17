@@ -1562,7 +1562,7 @@ public class AfterworkScheduler {
     @Transactional
     public void setRecommendOnline(){
 
-        productRepository.bulkIsRecommendOnline0WithSiteName();
+        productRepository.bulkIsRecommendOnlineFalse();
 
         StringBuilder jpql = new StringBuilder();
         jpql.append("SELECT p FROM Product p WHERE p.isOnline = true and p.status = 'Y' GROUP BY p.title ORDER BY rand()");
@@ -1583,7 +1583,7 @@ public class AfterworkScheduler {
     @Transactional
     public void setRecommendOffline(){
 
-        productRepository.bulkIsRecommendOffline0WithSiteName();
+        productRepository.bulkIsRecommendOfflineFalse();
 
         StringBuilder jpql = new StringBuilder();
         jpql.append("SELECT p FROM Product p WHERE p.isOffline = true and p.status = 'Y' GROUP BY p.title ORDER BY rand()");
