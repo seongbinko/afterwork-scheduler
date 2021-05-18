@@ -1056,7 +1056,7 @@ public class AfterworkScheduler {
                     price_info = price_info + additionTo + monthly_digit;
                 }
 
-                boolean isOnline = false;
+                boolean isOnline = true;
                 boolean isOffline = false;
                 String status = "Y";
                 String siteUrl = base2.get(i).findElement(By.tagName("a")).getAttribute("href");
