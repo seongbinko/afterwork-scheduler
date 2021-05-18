@@ -33,18 +33,6 @@ import java.util.List;
 // 134=상봉 | 135=삼성 | 102=한양대 | 75=마곡더랜드타워 | 103=명동 | 110=고덕 | 125=동대입구 | 122=대치
 // 99=명일동 | 116=약수역 | 128=신당 | 20=정릉 | 131=월곡 | 124=옥수 | 76=셀렉티드연남 | 136=동소문
 
-@Getter
-@Setter
-class RegionSort{
-
-    public RegionSort(int regionNum, String regionLabel){
-        this.regionNum = regionNum;
-        this.regionLabel = regionLabel;
-    }
-
-    private int regionNum;
-    private String regionLabel;
-}
 
 @Getter
 @Setter

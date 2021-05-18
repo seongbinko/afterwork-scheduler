@@ -1,6 +1,6 @@
 spring:
   profiles:
-    include: scheduler-db
+    include: test-db
   h2:
     console:
       enabled: true
