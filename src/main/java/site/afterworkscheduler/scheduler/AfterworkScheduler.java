@@ -1057,7 +1057,7 @@ public class AfterworkScheduler {
                 }
 
                 boolean isOnline = false;
-                boolean isOffline = true;
+                boolean isOffline = false;
                 String status = "Y";
                 String siteUrl = base2.get(i).findElement(By.tagName("a")).getAttribute("href");
                 try{
