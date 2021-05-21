@@ -40,11 +40,10 @@ public class AfterworkScheduler {
 
     private final ProductRepository productRepository;
 
-
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 33 21 * * *")
+    @Scheduled(cron = "0 44 21 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -53,6 +52,7 @@ public class AfterworkScheduler {
         }
         ChromeOptions options = new ChromeOptions();
         options.addArguments("headless");
+        options.addArguments("disable-gpu");
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
