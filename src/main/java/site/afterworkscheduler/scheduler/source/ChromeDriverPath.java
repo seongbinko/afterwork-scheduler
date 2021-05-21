@@ -4,7 +4,7 @@ public enum ChromeDriverPath {
     KNS("chromedriver.exe"),
     CJS("C:\\Users\\Jason\\Downloads\\chromedriver.exe"),
     KSB("/Users/ko/projects/chromedriver"),
-    EC2("/usr/local/bin/chromedriver");
+    EC2("/home/ec2-user/app/chromedriver");
 
     final private String path;
 
