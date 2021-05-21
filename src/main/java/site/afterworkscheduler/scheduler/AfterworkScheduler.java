@@ -44,7 +44,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 25 21 * * *")
+    @Scheduled(cron = "0 33 21 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
