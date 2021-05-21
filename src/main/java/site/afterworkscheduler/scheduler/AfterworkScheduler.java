@@ -43,7 +43,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 50 21 * * *")
+    @Scheduled(cron = "0 2 22 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -64,25 +64,25 @@ public class AfterworkScheduler {
 
         crawlClass101(options);
 
-//        crawlHobby(options);
-//
-//        crawlMocha(options);
-//
-//        SeleniumListResponse infoList = talingMacro.sorted();
-////        crawlTaling(options, infoList);
-//        crawlTaling2(options, infoList);
-//
-//        crawlHobbyInTheBox(options);
-//
-//        crawlMybiskit(options);
-//
-//        crawlIdus(options);
-//
-//        setRecommendOnline();
-//
-//        setRecommendOffline();
-//
-//        bulkDeleteByStatusN();
+        crawlHobby(options);
+
+        crawlMocha(options);
+
+        SeleniumListResponse infoList = talingMacro.sorted();
+//        crawlTaling(options, infoList);
+        crawlTaling2(options, infoList);
+
+        crawlHobbyInTheBox(options);
+
+        crawlMybiskit(options);
+
+        crawlIdus(options);
+
+        setRecommendOnline();
+
+        setRecommendOffline();
+
+        bulkDeleteByStatusN();
 
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
