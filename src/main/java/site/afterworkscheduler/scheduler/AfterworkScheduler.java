@@ -43,7 +43,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 44 21 * * *")
+    @Scheduled(cron = "0 50 21 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -51,8 +51,12 @@ public class AfterworkScheduler {
             e.printStackTrace();
         }
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("headless");
-        options.addArguments("disable-gpu");
+//        options.addArguments("headless");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--headless"); //should be enabled for Jenkins
+        options.addArguments("--disable-dev-shm-usage"); //should be enabled for Jenkins
+        options.addArguments("--window-size=1920x1080"); //should be enabled for Jenkins
+
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
