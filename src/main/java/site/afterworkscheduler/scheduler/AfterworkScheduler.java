@@ -33,7 +33,7 @@ public class AfterworkScheduler {
     EntityManager em;
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.EC2;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -44,7 +44,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    @Scheduled(cron = "0 0 4 * * *")
+    @Scheduled(cron = "0 40 20 * * *")
     public void task() {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -78,7 +78,7 @@ public class AfterworkScheduler {
 
         setRecommendOffline();
 
-        deleteStatusN();
+        bulkDeleteByStatusN();
 
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
@@ -1913,8 +1913,8 @@ public class AfterworkScheduler {
     }
 
     @Transactional
-    public void deleteStatusN(){
-        productRepository.deleteByStatusN();
+    public void bulkDeleteByStatusN(){
+        productRepository.bulkDeleteByStatusN();
     }
 
 //    public void statusChange(String siteName) {

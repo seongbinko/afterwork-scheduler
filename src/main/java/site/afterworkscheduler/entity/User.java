@@ -10,8 +10,9 @@ import java.util.List;
 
 @Entity
 @Getter @Setter
-@AllArgsConstructor @Builder
-@NoArgsConstructor//(access = AccessLevel.PROTECTED)// protected로 기본생성자 생성
+@AllArgsConstructor
+@Builder
+@NoArgsConstructor
 @Table(name = "users", uniqueConstraints = {
         @UniqueConstraint(columnNames = "email")
 })

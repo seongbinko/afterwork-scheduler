@@ -6,11 +6,10 @@ import javax.persistence.*;
 
 @Entity
 @Table(name = "locations")
-@Getter
-@Setter
+@Getter @Setter
 @AllArgsConstructor
 @Builder
-@NoArgsConstructor(access = AccessLevel.PROTECTED)// protected로 기본생성자 생성
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Location extends BaseTimeEntity{
 
     @Id

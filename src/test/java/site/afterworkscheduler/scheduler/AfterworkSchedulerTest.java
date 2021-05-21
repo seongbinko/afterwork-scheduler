@@ -58,7 +58,7 @@ class AfterworkSchedulerTest {
         int newProductCount = 0;
         int updateProductCount = 0;
 
-        for (int i = 0; i < enumValues.size(); i++) {
+        for (int i = 0; i < 1; i++) {
             int pageNum = 1;
             while (true) {
                 String krCategory = enumValues.get(i).getKrCategory();
