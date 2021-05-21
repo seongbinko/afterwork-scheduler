@@ -78,6 +78,8 @@ public class AfterworkScheduler {
 
         setRecommendOffline();
 
+        deleteStatusN();
+
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
     }
@@ -928,15 +930,6 @@ public class AfterworkScheduler {
                 catch (Exception ignore){
 
                 }
-
-                System.out.println("strTitle = " + strTitle);
-                System.out.println("strAuthor = " + strAuthor);
-                System.out.println("strLocation = " + strLocation);
-                System.out.println("strImgUrl = " + strImgUrl);
-                System.out.println("strSiteUrl = " + strSiteUrl);
-                System.out.println("intPrice = " + intPrice);
-                System.out.println("strPriceInfo = " + strPriceInfo);
-                System.out.println("intPopularity = " + intPopularity);
 
                 //카테고리 변환
                 if (strCategory.contains("공예")) {
@@ -1917,6 +1910,11 @@ public class AfterworkScheduler {
         }
 
         productRepository.saveAll(updateProducts);
+    }
+
+    @Transactional
+    public void deleteStatusN(){
+        productRepository.deleteByStatusN();
     }
 
 //    public void statusChange(String siteName) {
