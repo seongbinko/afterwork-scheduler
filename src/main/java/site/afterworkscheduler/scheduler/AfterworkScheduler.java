@@ -39,6 +39,8 @@ public class AfterworkScheduler {
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
 
     private final ProductRepository productRepository;
+
+
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
@@ -75,6 +77,8 @@ public class AfterworkScheduler {
         setRecommendOnline();
 
         setRecommendOffline();
+
+        deleteStatusN();
 
         long end = System.currentTimeMillis();
         log.info("스케줄러 실행 시간 : " + (end - start) / 1000.0 + "초");
@@ -427,9 +431,12 @@ public class AfterworkScheduler {
 
                 try {
                     //int가격을 위한 사전작업
-                    strPrice = webElement.findElement(By.xpath("a/div/div[5]")).getText();
-                    strPriceInfo = strPrice;
-                    intPrice = PriceStringToIntForClass101(strPrice.split("원")[0]);
+                    int length = webElement.findElements(By.xpath("a/div/div")).size();
+                    if (length >= 5){
+                        strPrice = webElement.findElement(By.xpath("a/div/div[" + (length - 1)+ "]")).getText();
+                        strPriceInfo = strPrice;
+                        intPrice = PriceStringToIntForClass101(strPrice.split("원")[0]);
+                    }
 
                     //할인가 적용 가격
                     if (strPrice.contains("월")) {
@@ -441,6 +448,8 @@ public class AfterworkScheduler {
 
                         strPriceInfo = strPrice.split("원")[0] + "원/월 x " + strPrice.split("원")[1];
                     }
+
+                    System.out.println("strPriceInfo = " + strPriceInfo);
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -921,15 +930,6 @@ public class AfterworkScheduler {
                 catch (Exception ignore){
 
                 }
-
-                System.out.println("strTitle = " + strTitle);
-                System.out.println("strAuthor = " + strAuthor);
-                System.out.println("strLocation = " + strLocation);
-                System.out.println("strImgUrl = " + strImgUrl);
-                System.out.println("strSiteUrl = " + strSiteUrl);
-                System.out.println("intPrice = " + intPrice);
-                System.out.println("strPriceInfo = " + strPriceInfo);
-                System.out.println("intPopularity = " + intPopularity);
 
                 //카테고리 변환
                 if (strCategory.contains("공예")) {
@@ -1910,6 +1910,11 @@ public class AfterworkScheduler {
         }
 
         productRepository.saveAll(updateProducts);
+    }
+
+    @Transactional
+    public void deleteStatusN(){
+        productRepository.deleteByStatusN();
     }
 
 //    public void statusChange(String siteName) {

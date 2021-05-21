@@ -32,4 +32,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Modifying(clearAutomatically = true)
     @Query("update Product p set p.isRecommendOffline = false where p.isRecommendOffline = true")
     void bulkIsRecommendOfflineFalse();
+
+    @Modifying(clearAutomatically = true)
+    @Query("delete from Product p where p.status = 'N' and p.productId not in (select c.product.productId from Collect c)")
+    void deleteByStatusN();
 }
