@@ -46,10 +46,10 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    public static final int DEFAULT_THREADS = 2;
+    public static final int DEFAULT_THREADS = 1;
     public static ExecutorService executorService = null;
 
-    @Scheduled(cron = "0 20 3 * * *")
+    @Scheduled(cron = "0 25 3 * * *")
     public void task() throws InterruptedException {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
