@@ -23,10 +23,7 @@ import javax.persistence.Query;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Component
 @Slf4j
@@ -37,7 +34,7 @@ public class AfterworkScheduler {
     EntityManager em;
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.EC2;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -46,10 +43,10 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    public static final int DEFAULT_THREADS = 1;
+    public static final int DEFAULT_THREADS = 8;
     public static ExecutorService executorService = null;
 
-    @Scheduled(cron = "0 45 3 * * *")
+    @Scheduled(cron = "0 31 9 * * *")
     public void task() throws InterruptedException {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -66,36 +63,40 @@ public class AfterworkScheduler {
         // 소스 실행전 시간 취득
         long start = System.currentTimeMillis();
 
-        crawlClass101(options);
+        List<Future> futureList = new ArrayList<>();
 
-        crawlHobby(options);
+        futureList.add(crawlClass101(options));
 
-        crawlMocha(options);
+        futureList.add(crawlHobby(options));
+
+        futureList.add(crawlMocha(options));
 
         SeleniumListResponse infoList = talingMacro.sorted();
 //        crawlTaling(options, infoList);
-        crawlTaling2(options, infoList);
+        futureList.add(crawlTaling2(options, infoList));
 
-        crawlHobbyInTheBox(options);
+        futureList.add(crawlHobbyInTheBox(options));
+//
+        futureList.add(crawlMybiskit(options));
 
-        crawlMybiskit(options);
+        futureList.addAll(crawlIdus(options));
 
-        crawlIdus(options);
-
-        executorService.shutdown();
-
-        do {
-            try {
-                if(!executorService.isShutdown()) {
-                    log.info("==================== 쓰레드 종료 요청 ==================");
-
-                    executorService.shutdown();
+        boolean isDoingTask = true;
+        while(isDoingTask) {
+            isDoingTask = false;
+            for (Future future : futureList) {
+                log.info(String.valueOf(future.isDone()));
+                if (!future.isDone()) {
+                    isDoingTask = true;
+                    break;
                 }
-            } catch (Exception e) {
-                log.info("==================== 오류로 인한 강제 종료 ================");
-                executorService.shutdown();
             }
-        } while (!executorService.awaitTermination(1, TimeUnit.MINUTES));
+
+            Thread.sleep(1000 * 60);
+        }
+
+        log.info("모든 Task 완료");
+        executorService.shutdown();
 
         setRecommendOnline();
 
@@ -108,9 +109,10 @@ public class AfterworkScheduler {
     }
 
     @Transactional
-    public void crawlMybiskit(ChromeOptions options) {
+    public Future crawlMybiskit(ChromeOptions options) {
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
 
         Runnable runnable = () -> {
             String siteName = "마이비스킷";
@@ -242,14 +244,15 @@ public class AfterworkScheduler {
             }
         };
 
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
 
     }
 
     @Transactional
-    public void crawlHobbyInTheBox(ChromeOptions options) {
+    public Future crawlHobbyInTheBox(ChromeOptions options) {
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
 
         Runnable runnable = () -> {
             // 프러덕트 테이블의 모든 컬럼을 N으로 바꾼다.
@@ -401,14 +404,14 @@ public class AfterworkScheduler {
             log.info("총 update하는 product size: " + updateProducts.size());
         };
 
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
     }
 
     @Transactional
-    public void crawlClass101(ChromeOptions options) {
+    public Future crawlClass101(ChromeOptions options) {
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
         Runnable runnable = () -> {
             String siteName = "클래스101";
             productRepository.bulkStatusNWithSiteName(siteName);
@@ -581,11 +584,13 @@ public class AfterworkScheduler {
                 throw new RuntimeException(e.getMessage());
             }
         };
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
     }
 
-    public void crawlIdus(ChromeOptions options) {
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+    public List<Future> crawlIdus(ChromeOptions options) {
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
+        List<Future> futureList = new ArrayList<>();
         IdusCategory[] enumValues = IdusCategory.values();
         String siteName = "아이디어스";
         productRepository.bulkStatusNWithSiteName(siteName);
@@ -594,15 +599,17 @@ public class AfterworkScheduler {
             crawlIdusOnline(siteName, options);
         };
 
-        executorService.submit(runnableOnline);
+        futureList.add(executorService.submit(runnableOnline));
 
         for (IdusCategory enumValue : enumValues) {
             Runnable runnableOffline = () -> {
                 crawlIdusOffline(siteName, options, enumValue);
             };
 
-            executorService.submit(runnableOffline);
+            futureList.add(executorService.submit(runnableOffline));
         }
+
+        return futureList;
     }
 
     @Transactional
@@ -915,9 +922,10 @@ public class AfterworkScheduler {
 
     //Hobbyful update
     @Transactional
-    public void crawlHobby(ChromeOptions options){
+    public Future crawlHobby(ChromeOptions options){
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
 
         Runnable runnable = () -> {
 
@@ -1046,21 +1054,18 @@ public class AfterworkScheduler {
                 throw new RuntimeException(e.getMessage());
             }
         };
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
     }
 
     //MochaClass Update
     @Transactional
-    public void crawlMocha(ChromeOptions options){
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+    public Future crawlMocha(ChromeOptions options){
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
 
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-
-
-
-
                 List<Product> updateProducts = new ArrayList<>();
                 String siteName = "모카클래스";
                 productRepository.bulkStatusNWithSiteName(siteName);
@@ -1212,7 +1217,7 @@ public class AfterworkScheduler {
             }
         };
 
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
     }
 
     @Transactional
@@ -1507,9 +1512,10 @@ public class AfterworkScheduler {
     }
 
     @Transactional
-    public void crawlTaling2(ChromeOptions options, SeleniumListResponse infoList){
+    public Future crawlTaling2(ChromeOptions options, SeleniumListResponse infoList){
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        executorService = Executors.newCachedThreadPool();
 
         Runnable runnable = () -> {
             WebDriver driver = new ChromeDriver(options);
@@ -1819,7 +1825,7 @@ public class AfterworkScheduler {
                 throw new RuntimeException(e.getMessage());
             }
         };
-        executorService.submit(runnable);
+        return executorService.submit(runnable);
     }
 
     @Transactional
