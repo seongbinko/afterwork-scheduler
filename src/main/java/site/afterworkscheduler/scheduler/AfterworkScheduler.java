@@ -34,7 +34,7 @@ public class AfterworkScheduler {
     EntityManager em;
 
     // KNS, KSB, CJS 만 변경 시 위에 이넘값으로 변경
-    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.KNS;
+    static ChromeDriverPath chromeDriverPath = ChromeDriverPath.CJS;
 
     public static final String WEB_DRIVER_ID = "webdriver.chrome.driver"; // 드라이버 ID
     public static final String WEB_DRIVER_PATH = chromeDriverPath.getPath(); // 드라이버 경로
@@ -46,7 +46,7 @@ public class AfterworkScheduler {
     public static final int DEFAULT_THREADS = 8;
     public static ExecutorService executorService = null;
 
-    @Scheduled(cron = "0 31 9 * * *")
+    @Scheduled(cron = "0 47 14 * * *")
     public void task() throws InterruptedException {
         try {
             System.setProperty(WEB_DRIVER_ID, WEB_DRIVER_PATH);
@@ -71,12 +71,10 @@ public class AfterworkScheduler {
 
         futureList.add(crawlMocha(options));
 
-        SeleniumListResponse infoList = talingMacro.sorted();
-//        crawlTaling(options, infoList);
-        futureList.add(crawlTaling2(options, infoList));
+        futureList.addAll(talingThread(options));
 
         futureList.add(crawlHobbyInTheBox(options));
-//
+
         futureList.add(crawlMybiskit(options));
 
         futureList.addAll(crawlIdus(options));
@@ -1230,612 +1228,353 @@ public class AfterworkScheduler {
         return executorService.submit(runnable);
     }
 
-    @Transactional
-    public void crawlTaling(ChromeOptions options, SeleniumListResponse infoList) {
+    public List<Future> talingThread(ChromeOptions options){
+        executorService = Executors.newCachedThreadPool();
+        List<Future> futureList = new ArrayList<>();
+        String siteName = "탈잉";
+        //N처리 과정
+        productRepository.bulkStatusNWithSiteName(siteName);
 
-        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
+        SeleniumListResponse infoList = talingMacro.sorted();
+        List<MainRegionSort> mainRegionList = infoList.getMainRegionList();
+        List<CategorySort> cateList = infoList.getCateList();
 
-        Runnable runnable = () -> {
-            List<Product> updateProducts = new ArrayList<>();
-            String siteName = "탈잉";
-            productRepository.bulkStatusNWithSiteName(siteName);
-            // statusChange(siteName);
-            WebDriver driver = new ChromeDriver(options);
-            int productCount = 0;
-            List<CategorySort> cateList = infoList.getCateList();
-            List<MainRegionSort> mainRegionList = infoList.getMainRegionList();
-            int regionSize = 0;
-            int pageCount = 1;
-            int cateListCount = 0;
-            int regionLayerCnt = 1;
-            int mainRegionListNum = 0;
-            int regionArrayCnt = 0;
-            String url = "https://taling.me/Home/Search/?page="+pageCount+"&cateMain=&cateSub="+cateList.get(0).getCategoryNum()+"&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region=&regionMain=";
-            driver.get(url);
+        //리스트의 리스트 담는 새로운 변수
+        List<ArrayList> listOflist = new ArrayList<>();
 
-            while(true) {
-                while (true) {
-                    while (true) {
-                        String[] regionArray = null;
-                        WebElement right = driver.findElement(By.className("right"));
-                        List<WebElement> regionSubLayers = right.findElements(By.tagName("select"));
-                        List<WebElement> regionLayer = regionSubLayers.get(regionLayerCnt).findElements(By.tagName("option"));
-                        String regionUrl = regionLayer.get(0).getAttribute("value");
-                        String regionName = null;
-                        regionSize = regionSubLayers.size();
-                        if(regionLayerCnt == 0){
-                            url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub=" + cateList.get(cateListCount).getCategoryNum() +
-                                    "&region=&orderIdx=&query=&code=&org=&day=&time=&region=" + regionUrl
-                                    + "&regionMain=";
-                            regionLayerCnt = 1;
-                        }else{
-                            url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub=" + cateList.get(cateListCount).getCategoryNum() +
-                                    "&region=&orderIdx=&query=&code=&org=&day=&time=&region=" + regionUrl
-                                    + "&regionMain=" + mainRegionListNum;
-                        }
-                        driver.get(url);
-                        right = driver.findElement(By.className("right"));
-                        regionSubLayers = right.findElements(By.tagName("select"));
-                        regionLayer = regionSubLayers.get(regionLayerCnt).findElements(By.tagName("option"));
-                        regionName = regionLayer.get(0).getText();
-
-                        List<WebElement> regionSubLayer2 = regionSubLayers;
-                        List<WebElement> regionLayer2 = regionSubLayer2.get(0).findElements(By.tagName("option"));
-                        regionArray = new String[regionSubLayers.size() - 1];
-                        for (int i = 1; i < regionSubLayer2.size(); i++) {
-                            regionArray[i - 1] = regionLayer2.get(i).getText();
-                        }
-
-                        for (int i = 0; i < mainRegionList.size(); i++) {
-                            if (regionArray[regionArrayCnt].contains(mainRegionList.get(i).getMainRegionLabel())) {
-                                mainRegionListNum = mainRegionList.get(i).getMainRegionNum();
-                            }
-                        }
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        final WebElement base = driver.findElement(By.className("cont2"));
-                        final List<WebElement> product_base = base.findElements(By.className("cont2_class"));
-                        int size = product_base.size();
-                        for (int i = 0; i < size; i++) {
-                            int imgUrlChk = 0;
-                            //                Category
-                            String category_temp = cateList.get(cateListCount).getCategoryLabel();
-                            //                Image Url
-                            String imgUrl_temp = product_base.get(i).findElement(By.className("img")).getAttribute("style");
-                            String found = "";
-                            if(imgUrl_temp.contains("s3.")){
-                                found = "s3.";
-                                imgUrlChk = 1;
-                            }else if(imgUrl_temp.contains("img.")){
-                                found = "img.";
-                                imgUrlChk = 1;
-                            }
-                            String imgUrl = null;
-                            if(imgUrlChk == 0) continue;
-                            if(imgUrlChk == 1){
-                                int imgUrl_index = imgUrl_temp.indexOf(found);
-                                String http = "https://";
-                                imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
-                                imgUrl = http + imgUrl_temp;
-                            }
-                            //                Author
-                            String author = product_base.get(i).findElement(By.className("name")).getText();
-                            //                Title
-                            String title = product_base.get(i).findElement(By.className("title")).getText();
-                            //                Location
-                            String location_temp = product_base.get(i).findElement(By.className("location")).getText();
-                            String location = null;
-                            boolean isOnline = false;
-                            boolean isOffline = false;
-                            String[] arr = null;
-                            StringBuilder sb = new StringBuilder();
-
-                            for (int j = 0; j < mainRegionList.size(); j++) {
-                                if (mainRegionListNum == mainRegionList.get(j).getMainRegionNum()) {
-                                    sb.append(mainRegionList.get(j).getMainRegionLabel());
-                                    sb.append(",");
-                                    break;
-                                }
-                            }
-
-                            if (location_temp.contains("온라인") || location_temp.contains("온/오프라인") || location_temp.contains("Live")
-                                    || location_temp.contains("live")) {
-                                arr = location_temp.split("온라인 Live|온/오프라인|지역없음|지역 없음|,");
-                                int cnt = 0;
-                                for (int j = 0; j < arr.length; j++) {
-                                    if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
-                                    else {
-                                        if (cnt > 0) {
-                                            sb.append(",");
-                                        }
-                                        sb.append(arr[j]);
-                                        cnt++;
-                                    }
-                                }
-                                String convertSb = sb.toString();
-                                char replace = ',';
-                                char sb_last = convertSb.charAt(sb.length()-1);
-                                if(sb_last == replace){
-                                    convertSb = convertSb.substring(0, convertSb.length()-1);
-                                }
-                                location = convertSb;
-                            } else if (location_temp.contains("지역 없음") || location_temp.contains("지억없음")) {
-                                arr = location_temp.split("지역없음|지역 없음|,");
-                                int cnt = 0;
-                                for (int j = 0; j < arr.length; j++) {
-                                    if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
-                                    else {
-                                        if (cnt > 0) {
-                                            sb.append(",");
-                                        }
-                                        sb.append(arr[j]);
-                                        cnt++;
-                                    }
-                                }
-                                if (sb.length() == 3) {
-                                    location = sb.substring(0, sb.length() - 1);
-                                } else {
-                                    location = sb.toString();
-                                }
-                            } else {
-                                sb.append(location_temp);
-                                location = sb.toString();
-                            }
-
-                            if(location.contains("온라인") || title.contains("온라인") || location.contains("녹화영상") || location.contains("튜터전자책")){
-                                isOnline = true;
-                                String[] check = location.split(",");
-                                for(int j = 0; j < check.length; j++){
-                                    if(!(check[j].equals("온라인") || check[j].equals("녹화영상") || check[j].equals("튜터전자책"))){
-                                        isOffline = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            //                Price
-                            String price_temp = product_base.get(i).findElement(By.className("price2")).getText();
-                            String price_info = price_temp;
-                            int price = 0;
-
-                            if (price_temp.contains("시간")) {
-                                int dash_pos = 0;
-                                price_info = price_info.replace("￦", "");
-                                dash_pos = price_info.indexOf("/");
-                                price_info = price_info.substring(0, dash_pos);
-                                price_info += "원/시간";
-
-                                price_temp = price_temp.replace("￦", "");
-                                price_temp = price_temp.replace(",", "");
-                                price_temp = price_temp.replace("/시간", "");
-                                price = Integer.parseInt(price_temp);
-                            } else {
-                                price_info = price_info.replace("￦", "");
-                                price_info += "원";
-
-                                price_temp = price_temp.replace("￦", "");
-                                price_temp = price_temp.replace(",", "");
-                                price = Integer.parseInt(price_temp);
-                            }
-
-                            //                Popularity
-                            String popularity_temp = product_base.get(i).findElement(By.className("d_day")).getText();
-                            int popularity = 0;
-                            if (popularity_temp.contains("명")) {
-                                popularity = Integer.parseInt(popularity_temp.substring(0, popularity_temp.indexOf("명")));
-                            } else if (popularity_temp.contains("D")) {
-                                try{
-                                    popularity_temp = product_base.get(i).findElement(By.className("review")).getText();
-                                    popularity = Integer.parseInt(popularity_temp.substring(1, popularity_temp.length() - 1));
-                                }catch(Exception e){
-                                    popularity = 0;
-                                }
-                            }
-                            //                Site Url/Name
-                            String siteUrl = product_base.get(i).findElement(By.tagName("a")).getAttribute("href");
-                            //                Status
-                            String status = null;
-                            try {
-                                WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
-                                status = "N";
-                            } catch (Exception e) {
-                                status = "Y";
-                            }
-
-                            Category category = categoryRepository.findByName(category_temp).orElse(null);
-                            Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
-
-                            if(product == null){
-                                product = Product.builder()
-                                        .title(title)
-                                        .author(author)
-                                        .price(price)
-                                        .priceInfo(price_info)
-                                        .imgUrl(imgUrl)
-                                        .isOnline(isOnline)
-                                        .isOffline(isOffline)
-                                        .popularity(popularity)
-                                        .location(location)
-                                        .status(status)
-                                        .siteName(siteName)
-                                        .siteUrl(siteUrl)
-                                        .category(category)
-                                        .build();
-                                productRepository.save(product);
-                            }else{
-                                product.setTitle(title);
-                                product.setAuthor(author);
-                                product.setPrice(price);
-                                product.setPriceInfo(price_info);
-                                product.setImgUrl(imgUrl);
-                                product.setOnline(isOnline);
-                                product.setOffline(isOffline);
-                                product.setLocation(location);
-                                product.setPopularity(popularity);
-                                product.setSiteUrl(siteUrl);
-                                product.setSiteName(siteName);
-                                product.setStatus(status);
-                                product.setCategory(category);
-                                updateProducts.add(product);
-                            }
-                            productCount+=1;
-                        }
-                        if (size == 0) {
-                            regionLayerCnt++;
-                            regionArrayCnt++;
-                            pageCount = 1;
-                            break;
-                        } else {
-                            pageCount++;
-                        }
-                    }
-                    if (regionLayerCnt == regionSize) {
-                        regionLayerCnt = 0;
-                        break;
-                    }
+        //스레드 개수
+        int threadCnt = 6;
+        //나눌 개수
+        int divideCnt = 10;
+        //나누기
+        int totElement = cateList.size();
+        for(int i = 0; i < threadCnt; i++){
+            ArrayList<CategorySort> temp = new ArrayList<>();
+            if((totElement - divideCnt) > 0){
+                for(int j = i*divideCnt; j < i*divideCnt+divideCnt; j++){
+                    temp.add(cateList.get(j));
                 }
-                cateListCount++;
-                regionArrayCnt = 0;
-                if(cateListCount == cateList.size()){
-                    break;
+                listOflist.add(temp);
+                totElement -= divideCnt;
+            }else{
+                for(int j = i*divideCnt; j < cateList.size(); j++){
+                    temp.add(cateList.get(j));
                 }
+                listOflist.add(temp);
             }
-            productRepository.saveAll(updateProducts);
-            log.info("총 update하는 product size: "+ updateProducts.size());
-            try {
-                //드라이버가 null이 아니라면
-                if (driver != null) {
-                    // 드라이버 연결 종료
-                    driver.close(); // 드라이버 연결해제
-                    // 프로세스 종료
-                    driver.quit();
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
-            }
+        }
 
-        };
-        executorService.submit(runnable);
+        //스레드 실행
+        for(int i = 0; i < listOflist.size(); i++){
+            List<CategorySort> realCateList = listOflist.get(i);
+            Runnable runnable = () -> crawlTaling(options, mainRegionList, realCateList, siteName);
+
+            futureList.add(executorService.submit(runnable));
+        }
+
+        return futureList;
     }
 
     @Transactional
-    public Future crawlTaling2(ChromeOptions options, SeleniumListResponse infoList){
+    public void crawlTaling(ChromeOptions options, List<MainRegionSort> mainRegionList, List<CategorySort> cateList, String siteName){
 
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
+        WebDriver driver = new ChromeDriver(options);
+        //업데이트 담을 리스트
+        List<Product> updateProducts = new ArrayList<>();
 
-        Runnable runnable = () -> {
-            WebDriver driver = new ChromeDriver(options);
+        //이동 해야할 카테고리 수
+        int categoryCnt = 0;
+        while(true) {//카테고리 만큼 이동하는 while loop
+            //지역 코드 및 지역 Url (지역코{들}) 크롤링
+            String url = "https://taling.me/Home/Search/?page=1&cateMain=&cateSub="
+                    + cateList.get(categoryCnt).getCategoryNum() + "&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region=&regionMain=";
+            driver.get(url);
 
-            String siteName = "탈잉";
-            //N처리 과정
-            productRepository.bulkStatusNWithSiteName(siteName);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
-            //업데이트 담을 리스트
-            List<Product> updateProducts = new ArrayList<>();
+            WebElement right = driver.findElement(By.className("right")); //지역 클라스 베이스
+            List<WebElement> select = right.findElements(By.tagName("select")); //1. 지역명 리스트 2~alpha 는 지역 url
 
-            //자료 리스트
-            List<CategorySort> cateList = infoList.getCateList();
-            List<MainRegionSort> mainRegionList = infoList.getMainRegionList();
-
-            //이동 해야할 카테고리 수
-            int categoryCnt = 0;
-            while(true) {//카테고리 만큼 이동하는 while loop
-                //지역 코드 및 지역 Url (지역코{들}) 크롤링
-                String url = "https://taling.me/Home/Search/?page=1&cateMain=&cateSub="
-                        + cateList.get(categoryCnt).getCategoryNum() + "&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region=&regionMain=";
-                driver.get(url);
-
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                WebElement right = driver.findElement(By.className("right")); //지역 클라스 베이스
-                List<WebElement> select = right.findElements(By.tagName("select")); //1. 지역명 리스트 2~alpha 는 지역 url
-
-                //지역 코드
-                List<WebElement> mainRegionEList = select.get(0).findElements(By.tagName("option")); //지역 코드 element list
-                List<Integer> mainRegionCodeList = new ArrayList<>(); //지역 코드 문자열 list
-                List<String> mainRegionCodeName = new ArrayList<>();
-                for(int i = 1; i < mainRegionEList.size(); i++){ //0번 text가 "지역"이기 때문에 이것을 거르고 나머지 가지고오기
-                    String mainRegionName = mainRegionEList.get(i).getText();
-                    mainRegionCodeName.add(mainRegionName);
-                }
-                for(int i = 0; i < mainRegionCodeName.size(); i++){ //해당 지역명이 어떤 코드인지 확인하고 코드 저장
-                    for(int j = 0; j < mainRegionList.size(); j++){
-                        if(mainRegionCodeName.get(i).equals(mainRegionList.get(j).getMainRegionLabel())){
-                            mainRegionCodeList.add(mainRegionList.get(j).getMainRegionNum());
-                        }
+            //지역 코드
+            List<WebElement> mainRegionEList = select.get(0).findElements(By.tagName("option")); //지역 코드 element list
+            List<Integer> mainRegionCodeList = new ArrayList<>(); //지역 코드 문자열 list
+            List<String> mainRegionCodeName = new ArrayList<>();
+            for(int i = 1; i < mainRegionEList.size(); i++){ //0번 text가 "지역"이기 때문에 이것을 거르고 나머지 가지고오기
+                String mainRegionName = mainRegionEList.get(i).getText();
+                mainRegionCodeName.add(mainRegionName);
+            }
+            for(int i = 0; i < mainRegionCodeName.size(); i++){ //해당 지역명이 어떤 코드인지 확인하고 코드 저장
+                for(int j = 0; j < mainRegionList.size(); j++){
+                    if(mainRegionCodeName.get(i).equals(mainRegionList.get(j).getMainRegionLabel())){
+                        mainRegionCodeList.add(mainRegionList.get(j).getMainRegionNum());
                     }
                 }
-                //지역 코드 카운드
-                int mainRegionCodeListCnt = 0;
+            }
+            //지역 코드 카운드
+            int mainRegionCodeListCnt = 0;
 
-                //지역 Url (지역코{들})
-                List<String> mainRegionCodesList = new ArrayList<>(); //지역 코드 '모음' 문자열 list (regionUrl)
-                for(int i = 1; i < select.size(); i++){
-                    List<WebElement> mainRegionEList2 = select.get(i).findElements(By.tagName("option"));
-                    String mainRegionCodes = mainRegionEList2.get(0).getAttribute("value");
-                    mainRegionCodesList.add(mainRegionCodes);
+            //지역 Url (지역코{들})
+            List<String> mainRegionCodesList = new ArrayList<>(); //지역 코드 '모음' 문자열 list (regionUrl)
+            for(int i = 1; i < select.size(); i++){
+                List<WebElement> mainRegionEList2 = select.get(i).findElements(By.tagName("option"));
+                String mainRegionCodes = mainRegionEList2.get(0).getAttribute("value");
+                mainRegionCodesList.add(mainRegionCodes);
+            }
+            //지역 코드(들)의 카운트
+            int mainRegionCodesListCnt = 0;
+
+            while (true) {//지역만큼 이동하는 while loop
+                //이동해야 할 페이지 수
+                int pageCount = 1;
+
+                //저장할 지역 찾기
+                StringBuilder sb = new StringBuilder();
+                String mainRegion = null;
+                for (int j = 0; j < mainRegionList.size(); j++) {
+                    int mainRegionCode = mainRegionCodeList.get(mainRegionCodeListCnt);
+                    if (mainRegionCode == mainRegionList.get(j).getMainRegionNum()) {
+                        mainRegion = mainRegionList.get(j).getMainRegionLabel();
+                        break;
+                    }
                 }
-                //지역 코드(들)의 카운트
-                int mainRegionCodesListCnt = 0;
 
-                while (true) {//지역만큼 이동하는 while loop
-                    //이동해야 할 페이지 수
-                    int pageCount = 1;
+                while (true) {//페이지만 이동하는 while loop
+                    url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub="
+                            + cateList.get(categoryCnt).getCategoryNum() + "&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region="
+                            + mainRegionCodesList.get(mainRegionCodesListCnt) + "&regionMain=" + mainRegionCodeList.get(mainRegionCodeListCnt);
+                    driver.get(url);
 
-                    //저장할 지역 찾기
-                    StringBuilder sb = new StringBuilder();
-                    String mainRegion = null;
-                    for (int j = 0; j < mainRegionList.size(); j++) {
-                        int mainRegionCode = mainRegionCodeList.get(mainRegionCodeListCnt);
-                        if (mainRegionCode == mainRegionList.get(j).getMainRegionNum()) {
-                            mainRegion = mainRegionList.get(j).getMainRegionLabel();
-                            break;
-                        }
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
 
-                    while (true) {//페이지만 이동하는 while loop
-                        url = "https://taling.me/Home/Search/?page=" + pageCount + "&cateMain=&cateSub="
-                                + cateList.get(categoryCnt).getCategoryNum() + "&region=&orderIdx=&query=&code=&org=&day=&time=&tType=&region="
-                                + mainRegionCodesList.get(mainRegionCodesListCnt) + "&regionMain=" + mainRegionCodeList.get(mainRegionCodeListCnt);
-                        driver.get(url);
-
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-
-                        //상품 찾기
-                        WebElement base = driver.findElement(By.className("cont2"));
-                        List<WebElement> product_base = base.findElements(By.className("cont2_class"));
-                        //상품을 찾지 못했을시 다음 지역으로 이동
-                        if(product_base.size() == 0){
-                            mainRegionCodeListCnt += 1;
-                            mainRegionCodesListCnt += 1;
-                            break;
-                        }
-
-    //상품 상세 정보 크롤링
-                        for(int i = 0; i < product_base.size(); i++){
-                            //카테고리
-                            String category_temp = cateList.get(categoryCnt).getCategoryLabel();
-                            //이미지 URL
-                            int imgUrlChk = 0;
-                            String imgUrl_temp = product_base.get(i).findElement(By.className("img")).getAttribute("style");
-                            String found = "";
-                            if(imgUrl_temp.contains("s3.")){
-                                found = "s3.";
-                                imgUrlChk = 1;
-                            }else if(imgUrl_temp.contains("img.")){
-                                found = "img.";
-                                imgUrlChk = 1;
-                            }
-                            String imgUrl = null;
-                            if(imgUrlChk == 0) continue;
-                            if(imgUrlChk == 1){
-                                int imgUrl_index = imgUrl_temp.indexOf(found);
-                                String http = "https://";
-                                imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
-                                imgUrl = http + imgUrl_temp;
-                            }
-                            //저자
-                            String author = product_base.get(i).findElement(By.className("name")).getText();
-                            //제목
-                            String title = product_base.get(i).findElement(By.className("title")).getText();
-                            //지역
-                            String location_temp = product_base.get(i).findElement(By.className("location")).getText();
-                            String location = null;
-                            boolean isOnline = false;
-                            boolean isOffline = false;
-                            String[] arr = null;
-                            sb.append(mainRegion);
-                            sb.append(",");
-                            if (location_temp.contains("온라인") || location_temp.contains("온/오프라인") || location_temp.contains("Live") || location_temp.contains("live")) {
-                                arr = location_temp.split("온라인 Live|온/오프라인|지역없음|지역 없음|,");
-                                int cnt = 0;
-                                for (int j = 0; j < arr.length; j++) {
-                                    if (!(arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  "))) {
-                                        if (cnt > 0) {
-                                            sb.append(",");
-                                        }
-                                        sb.append(arr[j]);
-                                        cnt++;
-                                    }
-                                }
-                                String convertSb = sb.toString();
-                                char replace = ',';
-                                char sb_last = convertSb.charAt(sb.length()-1);
-                                if(sb_last == replace){
-                                    convertSb = convertSb.substring(0, convertSb.length()-1);
-                                }
-                                location = convertSb;
-                            }else if (location_temp.contains("지역 없음") || location_temp.contains("지억없음")) {
-                                arr = location_temp.split("지역없음|지역 없음|,");
-                                int cnt = 0;
-                                for (int j = 0; j < arr.length; j++) {
-                                    if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
-                                    else {
-                                        if (cnt > 0) {
-                                            sb.append(",");
-                                        }
-                                        sb.append(arr[j]);
-                                        cnt++;
-                                    }
-                                }
-                                if (sb.length() == 3) {
-                                    location = sb.substring(0, sb.length() - 1);
-                                } else {
-                                    location = sb.toString();
-                                }
-                            } else {
-                                sb.append(location_temp);
-                                location = sb.toString();
-                            }
-
-                            //온라인 유무
-                            if(location.contains("온라인") || title.contains("온라인") || location.contains("녹화영상") || location.contains("튜터전자책")){
-                                isOnline = true;
-                                String[] check = location.split(",");
-                                for(int j = 0; j < check.length; j++){
-                                    if(!(check[j].equals("온라인") || check[j].equals("녹화영상") || check[j].equals("튜터전자책"))){
-                                        isOffline = true;
-                                        break;
-                                    }
-                                }
-                            }else{
-                                isOffline = true;
-                            }
-
-                            //가격
-                            String price_temp = product_base.get(i).findElement(By.className("price2")).getText();
-                            String price_info = price_temp;
-                            int price = 0;
-
-                            if (price_temp.contains("시간")) {
-                                int dash_pos = 0;
-                                price_info = price_info.replace("￦", "");
-                                dash_pos = price_info.indexOf("/");
-                                price_info = price_info.substring(0, dash_pos);
-                                price_info += "원/시간";
-
-                                price_temp = price_temp.replace("￦", "");
-                                price_temp = price_temp.replace(",", "");
-                                price_temp = price_temp.replace("/시간", "");
-                            } else {
-                                price_info = price_info.replace("￦", "");
-                                price_info += "원";
-
-                                price_temp = price_temp.replace("￦", "");
-                                price_temp = price_temp.replace(",", "");
-                            }
-                            price = Integer.parseInt(price_temp);
-
-                            //인기도
-                            String popularity_temp = product_base.get(i).findElement(By.className("d_day")).getText();
-                            int popularity = 0;
-                            if (popularity_temp.contains("명")) {
-                                popularity = Integer.parseInt(popularity_temp.substring(0, popularity_temp.indexOf("명")));
-                            } else if (popularity_temp.contains("D")) {
-                                try{
-                                    popularity_temp = product_base.get(i).findElement(By.className("review")).getText();
-                                    popularity = Integer.parseInt(popularity_temp.substring(1, popularity_temp.length() - 1));
-                                }catch(Exception e){
-                                    popularity = 0;
-                                }
-                            }
-                            //사이트명
-                            String siteUrl = product_base.get(i).findElement(By.tagName("a")).getAttribute("href");
-                            //상태
-                            String status = null;
-                            try {
-                                WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
-                                status = "N";
-                            } catch (Exception e) {
-                                status = "Y";
-                            }
-
-                            Category category = categoryRepository.findByName(category_temp).orElse(null);
-                            Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
-                            log.info("@@@@@@@@@@@@@@@@@@@@@@@@@@ 탈잉 @@@@@@@@@@@@@@@@@@@@@@@@@@");
-                            if(product == null){
-                                product = Product.builder()
-                                        .title(title)
-                                        .author(author)
-                                        .price(price)
-                                        .priceInfo(price_info)
-                                        .imgUrl(imgUrl)
-                                        .isOnline(isOnline)
-                                        .isOffline(isOffline)
-                                        .popularity(popularity)
-                                        .location(location)
-                                        .status(status)
-                                        .siteName(siteName)
-                                        .siteUrl(siteUrl)
-                                        .category(category)
-                                        .build();
-                                productRepository.save(product);
-                            }else{
-                                product.setTitle(title);
-                                product.setAuthor(author);
-                                product.setPrice(price);
-                                product.setPriceInfo(price_info);
-                                product.setImgUrl(imgUrl);
-                                product.setOnline(isOnline);
-                                product.setOffline(isOffline);
-                                product.setLocation(location);
-                                product.setPopularity(popularity);
-                                product.setSiteUrl(siteUrl);
-                                product.setSiteName(siteName);
-                                product.setStatus(status);
-                                product.setCategory(category);
-                                updateProducts.add(product);
-                            }
-                            //지역명 초기화
-                            sb.setLength(0);
-                        }
-    //상품 상세 정보 크롤링
-                        pageCount += 1;
-                    }//페이지만 이동하는 while loop
-
-                    //해당 카테고리에 지역만큼 다 이동했으면 다음 카테고리로 이동
-                    if(mainRegionCodeListCnt == mainRegionCodeList.size()){
-                        categoryCnt += 1;
+                    //상품 찾기
+                    WebElement base = driver.findElement(By.className("cont2"));
+                    List<WebElement> product_base = base.findElements(By.className("cont2_class"));
+                    //상품을 찾지 못했을시 다음 지역으로 이동
+                    if(product_base.size() == 0){
+                        mainRegionCodeListCnt += 1;
+                        mainRegionCodesListCnt += 1;
                         break;
                     }
 
-                }//지역만큼 이동하는 while loop
+//상품 상세 정보 크롤링
+                    for(int i = 0; i < product_base.size(); i++){
+                        //카테고리
+                        String category_temp = cateList.get(categoryCnt).getCategoryLabel();
+                        //이미지 URL
+                        int imgUrlChk = 0;
+                        String imgUrl_temp = product_base.get(i).findElement(By.className("img")).getAttribute("style");
+                        String found = "";
+                        if(imgUrl_temp.contains("s3.")){
+                            found = "s3.";
+                            imgUrlChk = 1;
+                        }else if(imgUrl_temp.contains("img.")){
+                            found = "img.";
+                            imgUrlChk = 1;
+                        }
+                        String imgUrl = null;
+                        if(imgUrlChk == 0) continue;
+                        if(imgUrlChk == 1){
+                            int imgUrl_index = imgUrl_temp.indexOf(found);
+                            String http = "https://";
+                            imgUrl_temp = imgUrl_temp.substring(imgUrl_index, imgUrl_temp.length()-3);
+                            imgUrl = http + imgUrl_temp;
+                        }
+                        //저자
+                        String author = product_base.get(i).findElement(By.className("name")).getText();
+                        //제목
+                        String title = product_base.get(i).findElement(By.className("title")).getText();
+                        //지역
+                        String location_temp = product_base.get(i).findElement(By.className("location")).getText();
+                        String location = null;
+                        boolean isOnline = false;
+                        boolean isOffline = false;
+                        String[] arr = null;
+                        sb.append(mainRegion);
+                        sb.append(",");
+                        if (location_temp.contains("온라인") || location_temp.contains("온/오프라인") || location_temp.contains("Live") || location_temp.contains("live")) {
+                            arr = location_temp.split("온라인 Live|온/오프라인|지역없음|지역 없음|,");
+                            int cnt = 0;
+                            for (int j = 0; j < arr.length; j++) {
+                                if (!(arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  "))) {
+                                    if (cnt > 0) {
+                                        sb.append(",");
+                                    }
+                                    sb.append(arr[j]);
+                                    cnt++;
+                                }
+                            }
+                            String convertSb = sb.toString();
+                            char replace = ',';
+                            char sb_last = convertSb.charAt(sb.length()-1);
+                            if(sb_last == replace){
+                                convertSb = convertSb.substring(0, convertSb.length()-1);
+                            }
+                            location = convertSb;
+                        }else if (location_temp.contains("지역 없음") || location_temp.contains("지억없음")) {
+                            arr = location_temp.split("지역없음|지역 없음|,");
+                            int cnt = 0;
+                            for (int j = 0; j < arr.length; j++) {
+                                if (arr[j].equals("") || arr[j].equals(" ") || arr[j].equals("  ")) continue;
+                                else {
+                                    if (cnt > 0) {
+                                        sb.append(",");
+                                    }
+                                    sb.append(arr[j]);
+                                    cnt++;
+                                }
+                            }
+                            if (sb.length() == 3) {
+                                location = sb.substring(0, sb.length() - 1);
+                            } else {
+                                location = sb.toString();
+                            }
+                        } else {
+                            sb.append(location_temp);
+                            location = sb.toString();
+                        }
 
-                //TalingMacro에 지정해둔 cateList 만큼 다 이동했을시 종료
-                if(categoryCnt == cateList.size()){
+                        //온라인 유무
+                        if(location.contains("온라인") || title.contains("온라인") || location.contains("녹화영상") || location.contains("튜터전자책")){
+                            isOnline = true;
+                            String[] check = location.split(",");
+                            for(int j = 0; j < check.length; j++){
+                                if(!(check[j].equals("온라인") || check[j].equals("녹화영상") || check[j].equals("튜터전자책"))){
+                                    isOffline = true;
+                                    break;
+                                }
+                            }
+                        }else{
+                            isOffline = true;
+                        }
+
+                        //가격
+                        String price_temp = product_base.get(i).findElement(By.className("price2")).getText();
+                        String price_info = price_temp;
+                        int price = 0;
+
+                        if (price_temp.contains("시간")) {
+                            int dash_pos = 0;
+                            price_info = price_info.replace("￦", "");
+                            dash_pos = price_info.indexOf("/");
+                            price_info = price_info.substring(0, dash_pos);
+                            price_info += "원/시간";
+
+                            price_temp = price_temp.replace("￦", "");
+                            price_temp = price_temp.replace(",", "");
+                            price_temp = price_temp.replace("/시간", "");
+                        } else {
+                            price_info = price_info.replace("￦", "");
+                            price_info += "원";
+
+                            price_temp = price_temp.replace("￦", "");
+                            price_temp = price_temp.replace(",", "");
+                        }
+                        price = Integer.parseInt(price_temp);
+
+                        //인기도
+                        String popularity_temp = product_base.get(i).findElement(By.className("d_day")).getText();
+                        int popularity = 0;
+                        if (popularity_temp.contains("명")) {
+                            popularity = Integer.parseInt(popularity_temp.substring(0, popularity_temp.indexOf("명")));
+                        } else if (popularity_temp.contains("D")) {
+                            try{
+                                popularity_temp = product_base.get(i).findElement(By.className("review")).getText();
+                                popularity = Integer.parseInt(popularity_temp.substring(1, popularity_temp.length() - 1));
+                            }catch(Exception e){
+                                popularity = 0;
+                            }
+                        }
+                        //사이트명
+                        String siteUrl = product_base.get(i).findElement(By.tagName("a")).getAttribute("href");
+                        //상태
+                        String status = null;
+                        try {
+                            WebElement find = product_base.get(i).findElement(By.className("soldoutbox"));
+                            status = "N";
+                        } catch (Exception e) {
+                            status = "Y";
+                        }
+
+                        Category category = categoryRepository.findByName(category_temp).orElse(null);
+                        Product product = productRepository.findByTitleLikeAndCategory(title, category).orElse(null);
+                        log.info("@@@@@@@@@@@@@@@@@@@@@@@@@@ 탈잉 @@@@@@@@@@@@@@@@@@@@@@@@@@");
+                        if(product == null){
+                            product = Product.builder()
+                                    .title(title)
+                                    .author(author)
+                                    .price(price)
+                                    .priceInfo(price_info)
+                                    .imgUrl(imgUrl)
+                                    .isOnline(isOnline)
+                                    .isOffline(isOffline)
+                                    .popularity(popularity)
+                                    .location(location)
+                                    .status(status)
+                                    .siteName(siteName)
+                                    .siteUrl(siteUrl)
+                                    .category(category)
+                                    .build();
+                            productRepository.save(product);
+                        }else{
+                            product.setTitle(title);
+                            product.setAuthor(author);
+                            product.setPrice(price);
+                            product.setPriceInfo(price_info);
+                            product.setImgUrl(imgUrl);
+                            product.setOnline(isOnline);
+                            product.setOffline(isOffline);
+                            product.setLocation(location);
+                            product.setPopularity(popularity);
+                            product.setSiteUrl(siteUrl);
+                            product.setSiteName(siteName);
+                            product.setStatus(status);
+                            product.setCategory(category);
+                            updateProducts.add(product);
+                        }
+                        //지역명 초기화
+                        sb.setLength(0);
+                    }
+//상품 상세 정보 크롤링
+                    pageCount += 1;
+                }//페이지만 이동하는 while loop
+
+                //해당 카테고리에 지역만큼 다 이동했으면 다음 카테고리로 이동
+                if(mainRegionCodeListCnt == mainRegionCodeList.size()){
+                    categoryCnt += 1;
                     break;
                 }
 
-            }//카테고리 만큼 이동하는 while loop
+            }//지역만큼 이동하는 while loop
 
-            //모든 While 작업이 끝났으면 한번에 업데이트
-            productRepository.saveAll(updateProducts);
-            log.info("총 update하는 product size: "+ updateProducts.size());
-            try {
-                //드라이버가 null이 아니라면
-                if (driver != null) {
-                    // 드라이버 연결 종료
-                    driver.close(); // 드라이버 연결해제
-                    // 프로세스 종료
-                    driver.quit();
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
+            //TalingMacro에 지정해둔 cateList 만큼 다 이동했을시 종료
+            if(categoryCnt == cateList.size()){
+                break;
             }
-        };
-        return executorService.submit(runnable);
+
+        }//카테고리 만큼 이동하는 while loop
+
+        //모든 While 작업이 끝났으면 한번에 업데이트
+        productRepository.saveAll(updateProducts);
+        log.info("총 update하는 product size: "+ updateProducts.size());
+        try {
+            //드라이버가 null이 아니라면
+            if (driver != null) {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     @Transactional
