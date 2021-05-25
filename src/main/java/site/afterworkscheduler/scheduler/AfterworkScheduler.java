@@ -402,6 +402,16 @@ public class AfterworkScheduler {
             }
             productRepository.saveAll(updateProducts);
             log.info("총 update하는 product size: " + updateProducts.size());
+
+            // 크롤링이 끝났을 경우 driver 종료
+            try {
+                // 드라이버 연결 종료
+                driver.close(); // 드라이버 연결해제
+                // 프로세스 종료
+                driver.quit();
+            } catch (Exception e) {
+                throw new RuntimeException(e.getMessage());
+            }
         };
 
         return executorService.submit(runnable);
