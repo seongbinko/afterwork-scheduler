@@ -43,8 +43,7 @@ public class AfterworkScheduler {
     private final CategoryRepository categoryRepository;
     private final TalingMacro talingMacro;
 
-    public static final int DEFAULT_THREADS = 8;
-    public static ExecutorService executorService = null;
+    public static ExecutorService executorService = Executors.newCachedThreadPool();
 
     @Scheduled(cron = "0 0 4 * * *")
     public void task() throws InterruptedException {
@@ -54,7 +53,6 @@ public class AfterworkScheduler {
             e.printStackTrace();
         }
         ChromeOptions options = new ChromeOptions();
-//        options.addArguments("headless");
         options.addArguments("--no-sandbox");
         options.addArguments("--headless"); //should be enabled for Jenkins
         options.addArguments("--disable-dev-shm-usage"); //should be enabled for Jenkins
@@ -108,10 +106,6 @@ public class AfterworkScheduler {
 
     @Transactional
     public Future crawlMybiskit(ChromeOptions options) {
-
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
-
         Runnable runnable = () -> {
             String siteName = "마이비스킷";
             productRepository.bulkStatusNWithSiteName(siteName);
@@ -248,10 +242,6 @@ public class AfterworkScheduler {
 
     @Transactional
     public Future crawlHobbyInTheBox(ChromeOptions options) {
-
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
-
         Runnable runnable = () -> {
             // 프러덕트 테이블의 모든 컬럼을 N으로 바꾼다.
             String siteName = "하비인더박스";
@@ -392,8 +382,6 @@ public class AfterworkScheduler {
                             product.setImgUrl(strImgUrl);
                             product.setStatus(strStatus);
                             product.setSiteName(strSiteName);
-                            //productService.updatePost(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
-                            //product.updateProduct(intPopularity, intPrice, strPriceInfo, strImgUrl, strStatus, strSiteName);
                             updateProducts.add(product);
                         }
                     }
@@ -419,8 +407,6 @@ public class AfterworkScheduler {
 
     @Transactional
     public Future crawlClass101(ChromeOptions options) {
-
-        executorService = Executors.newCachedThreadPool();
         Runnable runnable = () -> {
             String siteName = "클래스101";
             productRepository.bulkStatusNWithSiteName(siteName);
@@ -543,19 +529,6 @@ public class AfterworkScheduler {
                             log.info("No Category");
                         }
 
-                        log.info("strTitle = " + strTitle);
-                        log.info("strAuthor = " + strAuthor);
-                        log.info("intPopularity = " + intPopularity);
-                        log.info("intPrice = " + intPrice);
-                        log.info("strPriceInfo = " + strPriceInfo);
-                        log.info("strImgUrl = " + strImgUrl);
-                        log.info("isOnline = " + isOnline);
-                        log.info("isOffline = " + isOffline);
-                        log.info("strSiteUrl = " + strSiteUrl);
-                        log.info("strSiteName = " + strSiteName);
-                        log.info("strStatus = " + strStatus);
-                        log.info("strCategory = " + strCategory);
-
                         Category category = categoryRepository.findByName(strCategory).orElse(null);
 
                         Product product = productRepository.findByTitleLikeAndCategory(strTitle, category).orElse(null);
@@ -614,8 +587,6 @@ public class AfterworkScheduler {
     }
 
     public List<Future> crawlIdus(ChromeOptions options) {
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
         List<Future> futureList = new ArrayList<>();
         IdusCategory[] enumValues = IdusCategory.values();
         String siteName = "아이디어스";
@@ -743,7 +714,8 @@ public class AfterworkScheduler {
                     || strCategory.contains("디저트")) {
                 strCategory = "요리";
             } else {
-                System.out.println("No Category");
+                log.info("No Category");
+                continue;
             }
 
             Category category = categoryRepository.findByName(strCategory).orElse(null);
@@ -891,7 +863,8 @@ public class AfterworkScheduler {
             } else if (strCategory.contains("요리")) {
                 strCategory = "요리";
             } else {
-                System.out.println("No Category");
+                log.info("No Category");
+                continue;
             }
 
             Category category = categoryRepository.findByName(strCategory).orElse(null);
@@ -949,16 +922,11 @@ public class AfterworkScheduler {
     //Hobbyful update
     @Transactional
     public Future crawlHobby(ChromeOptions options){
-
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
-
         Runnable runnable = () -> {
 
             List<Product> updateProducts = new ArrayList<>();
             String siteName = "하비풀";
             productRepository.bulkStatusNWithSiteName(siteName);
-            //statusChange(siteName);
             WebDriver driver = new ChromeDriver(options);
             String[] moveCategoryName = {"/embroidery", "/macrame", "/drawing", "/digital-drawing", "/knitting", "/ratan", "/leather"
                     , "/soap-candle", "/jewelry-neonsign", "/calligraphy", "/kids"};
@@ -1086,9 +1054,6 @@ public class AfterworkScheduler {
     //MochaClass Update
     @Transactional
     public Future crawlMocha(ChromeOptions options){
-//        executorService = Executors.newFixedThreadPool(DEFAULT_THREADS);
-        executorService = Executors.newCachedThreadPool();
-
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
@@ -1247,7 +1212,6 @@ public class AfterworkScheduler {
     }
 
     public List<Future> talingThread(ChromeOptions options){
-        executorService = Executors.newCachedThreadPool();
         List<Future> futureList = new ArrayList<>();
         String siteName = "탈잉";
         //N처리 과정
@@ -1641,17 +1605,6 @@ public class AfterworkScheduler {
     public void bulkDeleteByStatusN(){
         productRepository.bulkDeleteByStatusN();
     }
-
-//    public void statusChange(String siteName) {
-//        List<Product> productList = productRepository.findAllBySiteName(siteName);
-//        if(productList.size() > 0){
-//            for (Product product : productList) {
-//                product.setStatus("N");
-//
-//                productRepository.save(product);
-//            }
-//        }
-//    }
 
     public void InfiniteScroll(WebDriver driver){
         // 현재 켜져있는 drvier 무한스크롤 제일 밑으로 내려가기 위한 코드
